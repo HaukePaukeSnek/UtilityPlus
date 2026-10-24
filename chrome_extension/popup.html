@@ -165,6 +165,34 @@
       </div>
 
       <div class="setting-group">
+        <label class="setting-title">Video-Qualität & Speicherbedarf:</label>
+        <p class="setting-desc">Komprimiert die Videos, um drastisch Speicherplatz zu sparen.</p>
+        <div class="radio-row">
+          <label class="radio-label">
+            <input type="radio" name="videoQuality" value="lq" checked>
+            <span>
+              <strong>Komprimiert (720p - Empfohlen)</strong>
+              <span class="setting-hint">Ca. 75% kleiner (~8-10 MB statt 35-50 MB), sofortiger Download</span>
+            </span>
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="videoQuality" value="reencode">
+            <span>
+              <strong>Maximale Kompression (Re-Encode)</strong>
+              <span class="setting-hint">Ca. 90-95% kleiner (~1.5-2.5 MB), wird im Browser komprimiert</span>
+            </span>
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="videoQuality" value="hq">
+            <span>
+              <strong>Originalqualität (HQ / 1440p)</strong>
+              <span class="setting-hint">Unkomprimiert, sehr große Dateien (30-60 MB pro Video)</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="setting-group">
         <label class="setting-title">Dateien zum Herunterladen:</label>
         <div class="checkbox-list">
           <label class="checkbox-item">

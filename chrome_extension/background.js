@@ -7,6 +7,7 @@
 const DEFAULT_SETTINGS = {
   baseFolder: 'CS2_Lineups',
   folderStructure: 'nested', // 'nested' (Map/Type/Slug) oder 'flat' (Ordner pro Nade)
+  videoQuality: 'lq', // 'lq' (Komprimiert, ~75% kleiner), 'reencode' (Maximal komprimiert, ~90-95% kleiner), 'hq' (Original 30-60MB)
   downloadVideo: true,
   downloadImage: true,
   downloadThumbnail: false,
@@ -79,12 +80,31 @@ async function handleDownload(data) {
   const downloadPromises = [];
   let downloadedCount = 0;
 
-  // 1. Video herunterladen (hq.mp4)
-  if (settings.downloadVideo && data.videoUrl) {
-    const videoFilename = `${targetFolder}/video.mp4`;
-    downloadPromises.push(
-      downloadFile(data.videoUrl, videoFilename).then(() => downloadedCount++)
-    );
+  // 1. Video herunterladen (unterstützt Kompression & Original)
+  if (settings.downloadVideo) {
+    let videoUrl = data.videoUrl;
+    let videoFilename = `${targetFolder}/video.mp4`;
+
+    if (data.compressedVideoBlobUrl) {
+      // Client-seitig re-kodiertes Video
+      videoUrl = data.compressedVideoBlobUrl;
+      const ext = data.compressedVideoExt || 'mp4';
+      videoFilename = `${targetFolder}/video.${ext}`;
+    } else if (settings.videoQuality === 'lq') {
+      // Bevorzuge komprimierte CDN-Version (LQ ~7-10 MB statt 35-50 MB)
+      videoUrl = data.videoLqUrl || data.videoUrl;
+      videoFilename = `${targetFolder}/video.mp4`;
+    } else if (settings.videoQuality === 'hq') {
+      // Unkomprimierte Originalversion
+      videoUrl = data.videoUrl;
+      videoFilename = `${targetFolder}/video.mp4`;
+    }
+
+    if (videoUrl) {
+      downloadPromises.push(
+        downloadFile(videoUrl, videoFilename).then(() => downloadedCount++)
+      );
+    }
   }
 
   // 2. Lineup-Bild herunterladen (lineup.webp)

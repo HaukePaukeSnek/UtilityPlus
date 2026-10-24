@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let userSettings = {
     baseFolder: 'CS2_Lineups',
     folderStructure: 'nested',
+    videoQuality: 'lq', // 'lq' | 'reencode' | 'hq'
     downloadVideo: true,
     downloadImage: true,
     downloadThumbnail: false,
@@ -213,21 +214,161 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Client-seitige Video-Kompression über Canvas & MediaRecorder
+  async function reencodeVideo(videoSrc, targetHeight = 720, targetBitrate = 1600000) {
+    const response = await fetch(videoSrc);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      video.src = blobUrl;
+
+      const timeout = setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+        reject(new Error('Timeout beim Re-Encodieren'));
+      }, 45000);
+
+      video.onloadedmetadata = () => {
+        let width = video.videoWidth || 1280;
+        let height = video.videoHeight || 720;
+
+        if (height > targetHeight) {
+          width = Math.round((width * targetHeight) / height);
+          height = targetHeight;
+        }
+        if (width % 2 !== 0) width--;
+        if (height % 2 !== 0) height--;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        const stream = canvas.captureStream(30);
+
+        let mimeType = 'video/webm; codecs=vp9';
+        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
+          if (MediaRecorder.isTypeSupported('video/mp4; codecs=avc1')) {
+            mimeType = 'video/mp4; codecs=avc1';
+          } else if (MediaRecorder.isTypeSupported('video/mp4')) {
+            mimeType = 'video/mp4';
+          } else if (MediaRecorder.isTypeSupported('video/webm; codecs=vp9')) {
+            mimeType = 'video/webm; codecs=vp9';
+          } else if (MediaRecorder.isTypeSupported('video/webm')) {
+            mimeType = 'video/webm';
+          }
+        }
+
+        let recorder;
+        try {
+          recorder = new MediaRecorder(stream, {
+            mimeType,
+            videoBitsPerSecond: targetBitrate
+          });
+        } catch (e) {
+          recorder = new MediaRecorder(stream);
+        }
+
+        const chunks = [];
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+
+        recorder.onstop = () => {
+          clearTimeout(timeout);
+          URL.revokeObjectURL(blobUrl);
+          const outBlob = new Blob(chunks, { type: mimeType });
+          const outUrl = URL.createObjectURL(outBlob);
+          resolve({
+            blobUrl: outUrl,
+            mimeType,
+            size: outBlob.size,
+            ext: mimeType.includes('mp4') ? 'mp4' : 'webm'
+          });
+        };
+
+        recorder.start();
+
+        let animId;
+        function drawFrame() {
+          if (video.paused || video.ended) return;
+          ctx.drawImage(video, 0, 0, width, height);
+          if ('requestVideoFrameCallback' in video) {
+            video.requestVideoFrameCallback(drawFrame);
+          } else {
+            animId = requestAnimationFrame(drawFrame);
+          }
+        }
+
+        video.onended = () => {
+          if (animId) cancelAnimationFrame(animId);
+          setTimeout(() => {
+            try { recorder.stop(); } catch (e) {}
+          }, 150);
+        };
+
+        video.onerror = (err) => {
+          clearTimeout(timeout);
+          URL.revokeObjectURL(blobUrl);
+          reject(err || new Error('Videofehler beim Re-Encodieren'));
+        };
+
+        video.play().then(() => {
+          drawFrame();
+        }).catch(err => {
+          clearTimeout(timeout);
+          URL.revokeObjectURL(blobUrl);
+          reject(err);
+        });
+      };
+
+      video.onerror = (err) => {
+        clearTimeout(timeout);
+        URL.revokeObjectURL(blobUrl);
+        reject(err || new Error('Video konnte nicht geladen werden'));
+      };
+    });
+  }
+
   // Download-Button
-  downloadBtn.addEventListener('click', () => {
+  downloadBtn.addEventListener('click', async () => {
     if (!currentLineupData) return;
 
     downloadBtn.disabled = true;
     downloadBtn.innerHTML = `
       <div class="loader-spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
-      <span>Wird heruntergeladen...</span>
+      <span>Wird vorbereitet...</span>
     `;
 
     statusMsg.className = 'status-box';
     statusMsg.classList.remove('hidden');
-    statusMsg.textContent = 'Dateien werden im Zielordner gespeichert...';
 
-    chrome.runtime.sendMessage({ action: 'downloadLineup', data: currentLineupData }, (response) => {
+    let payload = { ...currentLineupData };
+
+    if (userSettings.downloadVideo !== false && userSettings.videoQuality === 'reencode') {
+      try {
+        statusMsg.textContent = 'Komprimiere Video im Browser (720p Re-Encode)...';
+        downloadBtn.querySelector('span').textContent = 'Komprimiere...';
+        const srcUrl = currentLineupData.videoLqUrl || currentLineupData.videoUrl;
+        const compressed = await reencodeVideo(srcUrl, 720, 1600000);
+        payload.compressedVideoBlobUrl = compressed.blobUrl;
+        payload.compressedVideoExt = compressed.ext;
+        const mb = Math.round((compressed.size / 1024 / 1024) * 10) / 10;
+        statusMsg.textContent = `Video komprimiert (${mb} MB)! Speichere Dateien...`;
+      } catch (err) {
+        console.warn('Re-encode fehlgeschlagen, verwende LQ-Fallback:', err);
+        statusMsg.textContent = 'Re-Encode fehlgeschlagen, lade komprimiertes Video...';
+      }
+    } else {
+      statusMsg.textContent = 'Dateien werden im Zielordner gespeichert...';
+    }
+
+    downloadBtn.querySelector('span').textContent = 'Speichere...';
+
+    chrome.runtime.sendMessage({ action: 'downloadLineup', data: payload }, (response) => {
       downloadBtn.disabled = false;
       downloadBtn.innerHTML = `
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -280,6 +421,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const structRadio = document.querySelector(`input[name="folderStructure"][value="${s.folderStructure || 'nested'}"]`);
     if (structRadio) structRadio.checked = true;
 
+    const vqRadio = document.querySelector(`input[name="videoQuality"][value="${s.videoQuality || 'lq'}"]`);
+    if (vqRadio) vqRadio.checked = true;
+
     updateFolderPreview();
   }
 
@@ -288,6 +432,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const updated = {
       baseFolder: baseFolderInput.value.trim() || 'CS2_Lineups',
       folderStructure: document.querySelector('input[name="folderStructure"]:checked')?.value || 'nested',
+      videoQuality: document.querySelector('input[name="videoQuality"]:checked')?.value || 'lq',
       downloadVideo: chkVideo.checked,
       downloadImage: chkImage.checked,
       saveInfoTxt: chkTxt.checked,

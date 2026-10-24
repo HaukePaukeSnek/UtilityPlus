@@ -528,11 +528,20 @@ body::-webkit-scrollbar-thumb {
 
 .radio-label, .checkbox-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   font-size: 11px;
   color: var(--text-main);
   cursor: pointer;
+}
+
+.setting-hint {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-top: 2px;
+  line-height: 1.25;
 }
 
 .radio-label code {

@@ -218,7 +218,9 @@
     if (assetId) {
       data.assetId = assetId;
       data.videoUrl = `https://assets.csnades.gg/nades/${assetId}/hq.mp4`;
+      data.videoLqUrl = `https://assets.csnades.gg/nades/${assetId}/lq.mp4`;
       data.videoWebmUrl = `https://assets.csnades.gg/nades/${assetId}/hq.webm`;
+      data.videoLqWebmUrl = `https://assets.csnades.gg/nades/${assetId}/lq.webm`;
       data.lineupImageUrl = `https://assets.csnades.gg/nades/${assetId}/lineup.webp`;
       data.thumbnailUrl = `https://assets.csnades.gg/nades/${assetId}/thumbnail.webp`;
     }
@@ -376,6 +378,125 @@
     }, 3500);
   }
 
+  // Client-seitige Video-Kompression über Canvas & MediaRecorder
+  async function reencodeVideo(videoSrc, targetHeight = 720, targetBitrate = 1600000) {
+    const response = await fetch(videoSrc);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.muted = true;
+      video.playsInline = true;
+      video.src = blobUrl;
+
+      const timeout = setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+        reject(new Error('Timeout beim Re-Encodieren'));
+      }, 45000);
+
+      video.onloadedmetadata = () => {
+        let width = video.videoWidth || 1280;
+        let height = video.videoHeight || 720;
+
+        if (height > targetHeight) {
+          width = Math.round((width * targetHeight) / height);
+          height = targetHeight;
+        }
+        if (width % 2 !== 0) width--;
+        if (height % 2 !== 0) height--;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        const stream = canvas.captureStream(30);
+
+        let mimeType = 'video/webm; codecs=vp9';
+        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
+          if (MediaRecorder.isTypeSupported('video/mp4; codecs=avc1')) {
+            mimeType = 'video/mp4; codecs=avc1';
+          } else if (MediaRecorder.isTypeSupported('video/mp4')) {
+            mimeType = 'video/mp4';
+          } else if (MediaRecorder.isTypeSupported('video/webm; codecs=vp9')) {
+            mimeType = 'video/webm; codecs=vp9';
+          } else if (MediaRecorder.isTypeSupported('video/webm')) {
+            mimeType = 'video/webm';
+          }
+        }
+
+        let recorder;
+        try {
+          recorder = new MediaRecorder(stream, {
+            mimeType,
+            videoBitsPerSecond: targetBitrate
+          });
+        } catch (e) {
+          recorder = new MediaRecorder(stream);
+        }
+
+        const chunks = [];
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+
+        recorder.onstop = () => {
+          clearTimeout(timeout);
+          URL.revokeObjectURL(blobUrl);
+          const outBlob = new Blob(chunks, { type: mimeType });
+          const outUrl = URL.createObjectURL(outBlob);
+          resolve({
+            blobUrl: outUrl,
+            mimeType,
+            size: outBlob.size,
+            ext: mimeType.includes('mp4') ? 'mp4' : 'webm'
+          });
+        };
+
+        recorder.start();
+
+        let animId;
+        function drawFrame() {
+          if (video.paused || video.ended) return;
+          ctx.drawImage(video, 0, 0, width, height);
+          if ('requestVideoFrameCallback' in video) {
+            video.requestVideoFrameCallback(drawFrame);
+          } else {
+            animId = requestAnimationFrame(drawFrame);
+          }
+        }
+
+        video.onended = () => {
+          if (animId) cancelAnimationFrame(animId);
+          setTimeout(() => {
+            try { recorder.stop(); } catch (e) {}
+          }, 150);
+        };
+
+        video.onerror = (err) => {
+          clearTimeout(timeout);
+          URL.revokeObjectURL(blobUrl);
+          reject(err || new Error('Videofehler beim Re-Encodieren'));
+        };
+
+        video.play().then(() => {
+          drawFrame();
+        }).catch(err => {
+          clearTimeout(timeout);
+          URL.revokeObjectURL(blobUrl);
+          reject(err);
+        });
+      };
+
+      video.onerror = (err) => {
+        clearTimeout(timeout);
+        URL.revokeObjectURL(blobUrl);
+        reject(err || new Error('Video konnte nicht geladen werden'));
+      };
+    });
+  }
+
   // In-Page Schnell-Download-Button einfügen
   function injectQuickButton() {
     if (!isNadePage()) return;
@@ -398,14 +519,42 @@
       <span>Lineup Scrapen</span>
     `;
 
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       btn.disabled = true;
+      btn.innerHTML = `
+        <span class="cs2-spinner"></span>
+        <span>Vorbereitung...</span>
+      `;
+
+      let lineupData = scrapeNadeData();
+      let settings = {};
+      try {
+        settings = await chrome.storage.local.get(null);
+      } catch (e) {}
+
+      const vQuality = settings.videoQuality || 'lq';
+
+      if (settings.downloadVideo !== false && vQuality === 'reencode') {
+        try {
+          btn.innerHTML = `
+            <span class="cs2-spinner"></span>
+            <span>Komprimiere Video...</span>
+          `;
+          showToast('Komprimiere Video im Browser (720p Re-Encode)...');
+          const srcUrl = lineupData.videoLqUrl || lineupData.videoUrl;
+          const compressed = await reencodeVideo(srcUrl, 720, 1600000);
+          lineupData.compressedVideoBlobUrl = compressed.blobUrl;
+          lineupData.compressedVideoExt = compressed.ext;
+        } catch (e) {
+          console.warn('Re-encode im Tab fehlgeschlagen, verwende LQ-Fallback:', e);
+        }
+      }
+
       btn.innerHTML = `
         <span class="cs2-spinner"></span>
         <span>Lädt herunter...</span>
       `;
 
-      const lineupData = scrapeNadeData();
       chrome.runtime.sendMessage({ action: 'downloadLineup', data: lineupData }, (response) => {
         btn.disabled = false;
         btn.innerHTML = `
