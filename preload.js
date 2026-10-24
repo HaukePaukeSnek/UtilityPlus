@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('api', {
   getLineupData: () => ipcRenderer.invoke('get-lineup-data'),
   openLineupsDirectory: () => ipcRenderer.invoke('open-lineups-directory'),
   openExtensionDirectory: () => ipcRenderer.invoke('open-extension-directory'),
+  openCalloutFolder: (mapName) => ipcRenderer.invoke('open-callout-folder', mapName),
   onLineupsUpdated: (callback) => {
     const handler = () => callback();
     ipcRenderer.on('lineups-updated', handler);

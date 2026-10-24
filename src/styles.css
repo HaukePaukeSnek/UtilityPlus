@@ -947,3 +947,75 @@ body {
   margin-right: 4px;
 }
 
+/* Map Overview / Callouts View */
+.overview-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 24px;
+  overflow: hidden;
+  position: relative;
+}
+
+.overview-image-card {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #06080d;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+.overview-image-card img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.overview-empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+  padding: 36px 28px;
+  max-width: 500px;
+}
+
+.overview-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.overview-empty-card h2 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.overview-empty-card p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.folder-item-callout {
+  border-left: 3px solid var(--accent);
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.folder-item-callout:hover,
+.folder-item-callout.selected {
+  background: rgba(56, 189, 248, 0.14);
+}
+

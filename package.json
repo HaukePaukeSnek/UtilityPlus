@@ -42,6 +42,13 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "Map_Callouts",
+        "to": "Map_Callouts",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {

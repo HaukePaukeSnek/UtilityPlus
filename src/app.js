@@ -2,6 +2,7 @@
   // DOM Elements
   const folderView = document.getElementById('folder-view');
   const lineupView = document.getElementById('lineup-view');
+  const overviewView = document.getElementById('overview-view');
   const emptyState = document.getElementById('empty-state');
 
   const folderBreadcrumbs = document.getElementById('folder-breadcrumbs');
@@ -17,6 +18,15 @@
   const lineupMovement = document.getElementById('lineup-movement');
   const lineupPrecision = document.getElementById('lineup-precision');
   const landingCanvas = document.getElementById('landing-canvas');
+
+  const overviewBreadcrumbs = document.getElementById('overview-breadcrumbs');
+  const overviewImg = document.getElementById('overview-img');
+  const overviewImageContainer = document.getElementById('overview-image-container');
+  const overviewEmptyState = document.getElementById('overview-empty-state');
+  const overviewEmptyTitle = document.getElementById('overview-empty-title');
+  const overviewBtnOpenFolder = document.getElementById('overview-btn-open-folder');
+  const overviewEmptyOpenBtn = document.getElementById('overview-empty-open-btn');
+  const btnLineupCallout = document.getElementById('btn-lineup-callout');
 
   // Offscreen video & token for landing spot frame capture
   let captureVideo = null;
@@ -66,7 +76,8 @@
 
   // Application State
   let data = [];
-  let currentLevel = 'maps'; // 'maps' | 'categories' | 'lineups'
+  let currentLevel = 'maps'; // 'maps' | 'categories' | 'lineups' | 'overview'
+  let previousLevelBeforeOverview = 'categories';
   let mapIndex = 0;
   let categoryIndex = 0;
   let lineupIndex = 0;
@@ -94,15 +105,18 @@
       if (typeof saved.mapIndex === 'number' && saved.mapIndex < data.length) {
         mapIndex = saved.mapIndex;
         const currentMap = data[mapIndex];
-        if (typeof saved.categoryIndex === 'number' && currentMap && saved.categoryIndex < currentMap.categories.length) {
+        const totalCatCount = 1 + (currentMap && currentMap.categories ? currentMap.categories.length : 0);
+        if (typeof saved.categoryIndex === 'number' && currentMap && saved.categoryIndex < totalCatCount) {
           categoryIndex = saved.categoryIndex;
-          const currentCategory = currentMap.categories[categoryIndex];
-          if (typeof saved.lineupIndex === 'number' && currentCategory && saved.lineupIndex < currentCategory.lineups.length) {
-            lineupIndex = saved.lineupIndex;
+          if (categoryIndex > 0) {
+            const currentCategory = currentMap.categories[categoryIndex - 1];
+            if (typeof saved.lineupIndex === 'number' && currentCategory && saved.lineupIndex < currentCategory.lineups.length) {
+              lineupIndex = saved.lineupIndex;
+            }
           }
         }
       }
-      if (saved.currentLevel === 'lineups' || saved.currentLevel === 'categories' || saved.currentLevel === 'maps') {
+      if (['lineups', 'categories', 'maps', 'overview'].includes(saved.currentLevel)) {
         currentLevel = saved.currentLevel;
       }
     } catch (e) {}
@@ -124,6 +138,7 @@
   function showEmptyState() {
     folderView.classList.remove('active');
     lineupView.classList.remove('active');
+    if (overviewView) overviewView.classList.remove('active');
     emptyState.classList.add('active');
   }
 
@@ -145,6 +160,8 @@
       renderCategories();
     } else if (currentLevel === 'lineups') {
       renderLineups();
+    } else if (currentLevel === 'overview') {
+      renderOverview();
     }
 
     // Apply snappy transitions
@@ -162,6 +179,12 @@
           triggerAnimation(metaContainer, 'anim-prev');
         } else if (lastNavAnim === 'deeper') {
           triggerAnimation(lineupView, 'anim-deeper');
+        }
+      } else if (currentLevel === 'overview') {
+        if (lastNavAnim === 'deeper') {
+          triggerAnimation(overviewView, 'anim-deeper');
+        } else if (lastNavAnim === 'higher') {
+          triggerAnimation(overviewView, 'anim-higher');
         }
       } else {
         const folderContent = document.querySelector('.folder-content');
@@ -189,6 +212,7 @@
     lineupVideo.load();
     updateLandingPreview(null);
 
+    if (overviewView) overviewView.classList.remove('active');
     folderView.classList.add('active');
     lineupView.classList.remove('active');
 
@@ -209,8 +233,12 @@
 
       const count = document.createElement('span');
       count.className = 'folder-item-count';
-      const catCount = map.categories.length;
-      count.textContent = `${catCount} ${catCount === 1 ? 'Kategorie' : 'Kategorien'}`;
+      const catCount = map.categories ? map.categories.length : 0;
+      if (catCount === 0) {
+        count.textContent = 'Übersichtskarte';
+      } else {
+        count.textContent = `${catCount} ${catCount === 1 ? 'Kategorie' : 'Kategorien'}`;
+      }
 
       const arrow = document.createElement('span');
       arrow.className = 'folder-item-arrow';
@@ -243,6 +271,7 @@
     lineupVideo.load();
     updateLandingPreview(null);
 
+    if (overviewView) overviewView.classList.remove('active');
     folderView.classList.add('active');
     lineupView.classList.remove('active');
 
@@ -253,48 +282,134 @@
     folderTitle.textContent = 'Wähle eine Kategorie';
 
     folderList.innerHTML = '';
-    currentMap.categories.forEach((cat, index) => {
-      const item = document.createElement('div');
-      item.className = 'folder-item' + (index === categoryIndex ? ' selected' : '');
 
-      const name = document.createElement('span');
-      name.className = 'folder-item-name';
-      name.textContent = cat.name;
+    // First item: Callout Map
+    const calloutItem = document.createElement('div');
+    calloutItem.className = 'folder-item folder-item-callout' + (categoryIndex === 0 ? ' selected' : '');
 
-      const meta = document.createElement('div');
-      meta.className = 'folder-item-meta';
+    const calloutName = document.createElement('span');
+    calloutName.className = 'folder-item-name';
+    calloutName.textContent = '🗺️ Übersichtskarte (Callouts)';
 
-      const count = document.createElement('span');
-      count.className = 'folder-item-count';
-      const lineCount = cat.lineups.length;
-      count.textContent = `${lineCount} ${lineCount === 1 ? 'Lineup' : 'Lineups'}`;
+    const calloutMeta = document.createElement('div');
+    calloutMeta.className = 'folder-item-meta';
 
-      const arrow = document.createElement('span');
-      arrow.className = 'folder-item-arrow';
-      arrow.textContent = '→';
+    const calloutStatus = document.createElement('span');
+    calloutStatus.className = 'folder-item-count';
+    calloutStatus.textContent = currentMap.calloutImageUrl ? 'Karte bereit' : 'Screenshot fehlt';
 
-      meta.appendChild(count);
-      meta.appendChild(arrow);
+    const calloutArrow = document.createElement('span');
+    calloutArrow.className = 'folder-item-arrow';
+    calloutArrow.textContent = '→';
 
-      item.appendChild(name);
-      item.appendChild(meta);
+    calloutMeta.appendChild(calloutStatus);
+    calloutMeta.appendChild(calloutArrow);
+    calloutItem.appendChild(calloutName);
+    calloutItem.appendChild(calloutMeta);
 
-      item.addEventListener('click', () => {
-        categoryIndex = index;
-        navRight();
-      });
-
-      folderList.appendChild(item);
+    calloutItem.addEventListener('click', () => {
+      categoryIndex = 0;
+      previousLevelBeforeOverview = 'categories';
+      currentLevel = 'overview';
+      lastNavAnim = 'deeper';
+      render();
     });
+
+    folderList.appendChild(calloutItem);
+
+    // Grenade Categories (indices 1 .. N)
+    if (currentMap.categories) {
+      currentMap.categories.forEach((cat, index) => {
+        const itemIdx = index + 1;
+        const item = document.createElement('div');
+        item.className = 'folder-item' + (itemIdx === categoryIndex ? ' selected' : '');
+
+        const name = document.createElement('span');
+        name.className = 'folder-item-name';
+        name.textContent = cat.name;
+
+        const meta = document.createElement('div');
+        meta.className = 'folder-item-meta';
+
+        const count = document.createElement('span');
+        count.className = 'folder-item-count';
+        const lineCount = cat.lineups.length;
+        count.textContent = `${lineCount} ${lineCount === 1 ? 'Lineup' : 'Lineups'}`;
+
+        const arrow = document.createElement('span');
+        arrow.className = 'folder-item-arrow';
+        arrow.textContent = '→';
+
+        meta.appendChild(count);
+        meta.appendChild(arrow);
+
+        item.appendChild(name);
+        item.appendChild(meta);
+
+        item.addEventListener('click', () => {
+          categoryIndex = itemIdx;
+          navRight();
+        });
+
+        folderList.appendChild(item);
+      });
+    }
+  }
+
+  function renderOverview() {
+    const pauseBadge = document.getElementById('video-paused-badge');
+    const pauseOverlay = document.getElementById('video-pause-overlay');
+    if (pauseBadge) pauseBadge.style.display = 'none';
+    if (pauseOverlay) pauseOverlay.style.display = 'none';
+
+    lineupVideo.pause();
+    lineupVideo.removeAttribute('src');
+    lineupVideo.dataset.currentSrc = '';
+    lineupVideo.load();
+    updateLandingPreview(null);
+
+    folderView.classList.remove('active');
+    lineupView.classList.remove('active');
+    if (overviewView) overviewView.classList.add('active');
+
+    const currentMap = data[mapIndex];
+    if (!currentMap) return;
+
+    if (overviewBreadcrumbs) {
+      overviewBreadcrumbs.textContent = `${currentMap.name.toUpperCase()} › ÜBERSICHTSKARTE`;
+    }
+
+    if (currentMap.calloutImageUrl) {
+      if (overviewImageContainer) overviewImageContainer.style.display = 'flex';
+      if (overviewEmptyState) overviewEmptyState.style.display = 'none';
+      if (overviewImg) {
+        if (overviewImg.dataset.currentSrc !== currentMap.calloutImageUrl) {
+          overviewImg.dataset.currentSrc = currentMap.calloutImageUrl;
+          overviewImg.src = currentMap.calloutImageUrl;
+        }
+      }
+    } else {
+      if (overviewImageContainer) overviewImageContainer.style.display = 'none';
+      if (overviewEmptyState) overviewEmptyState.style.display = 'flex';
+      if (overviewEmptyTitle) {
+        overviewEmptyTitle.textContent = `Keine Übersichtskarte für ${currentMap.name} gefunden`;
+      }
+      if (overviewImg) {
+        overviewImg.dataset.currentSrc = '';
+        overviewImg.removeAttribute('src');
+      }
+    }
   }
 
   function renderLineups() {
+    if (overviewView) overviewView.classList.remove('active');
     folderView.classList.remove('active');
     lineupView.classList.add('active');
 
     const currentMap = data[mapIndex];
-    if (!currentMap) return;
-    const currentCategory = currentMap.categories[categoryIndex];
+    if (!currentMap || !currentMap.categories) return;
+    const catIdx = categoryIndex > 0 ? categoryIndex - 1 : 0;
+    const currentCategory = currentMap.categories[catIdx];
     if (!currentCategory) return;
     const currentLineup = currentCategory.lineups[lineupIndex];
     if (!currentLineup) return;
@@ -358,27 +473,40 @@
     lastNavAnim = 'deeper';
     if (currentLevel === 'maps') {
       const currentMap = data[mapIndex];
-      if (currentMap && currentMap.categories.length > 0) {
+      if (currentMap) {
         currentLevel = 'categories';
         categoryIndex = 0;
         render();
       }
     } else if (currentLevel === 'categories') {
       const currentMap = data[mapIndex];
-      const currentCategory = currentMap ? currentMap.categories[categoryIndex] : null;
-      if (currentCategory && currentCategory.lineups.length > 0) {
-        currentLevel = 'lineups';
-        if (lineupIndex >= currentCategory.lineups.length) {
-          lineupIndex = 0;
-        }
+      if (!currentMap) return;
+
+      if (categoryIndex === 0) {
+        // Open Overview / Callouts
+        previousLevelBeforeOverview = 'categories';
+        currentLevel = 'overview';
         render();
+      } else {
+        const catIdx = categoryIndex - 1;
+        const currentCategory = currentMap.categories ? currentMap.categories[catIdx] : null;
+        if (currentCategory && currentCategory.lineups && currentCategory.lineups.length > 0) {
+          currentLevel = 'lineups';
+          if (lineupIndex >= currentCategory.lineups.length) {
+            lineupIndex = 0;
+          }
+          render();
+        }
       }
     }
   }
 
   function navLeft() {
     lastNavAnim = 'higher';
-    if (currentLevel === 'lineups') {
+    if (currentLevel === 'overview') {
+      currentLevel = previousLevelBeforeOverview || 'categories';
+      render();
+    } else if (currentLevel === 'lineups') {
       currentLevel = 'categories';
       render();
     } else if (currentLevel === 'categories') {
@@ -395,14 +523,20 @@
       lineupIndex = 0;
       render();
     } else if (currentLevel === 'categories') {
-      const catCount = data[mapIndex].categories.length;
-      categoryIndex = (categoryIndex - 1 + catCount) % catCount;
+      const currentMap = data[mapIndex];
+      const totalCatItems = 1 + (currentMap && currentMap.categories ? currentMap.categories.length : 0);
+      categoryIndex = (categoryIndex - 1 + totalCatItems) % totalCatItems;
       lineupIndex = 0;
       render();
     } else if (currentLevel === 'lineups') {
-      const lineCount = data[mapIndex].categories[categoryIndex].lineups.length;
-      lineupIndex = (lineupIndex - 1 + lineCount) % lineCount;
-      render();
+      const currentMap = data[mapIndex];
+      const catIdx = categoryIndex > 0 ? categoryIndex - 1 : 0;
+      const currentCategory = currentMap && currentMap.categories ? currentMap.categories[catIdx] : null;
+      if (currentCategory && currentCategory.lineups && currentCategory.lineups.length > 0) {
+        const lineCount = currentCategory.lineups.length;
+        lineupIndex = (lineupIndex - 1 + lineCount) % lineCount;
+        render();
+      }
     }
   }
 
@@ -414,14 +548,20 @@
       lineupIndex = 0;
       render();
     } else if (currentLevel === 'categories') {
-      const catCount = data[mapIndex].categories.length;
-      categoryIndex = (categoryIndex + 1) % catCount;
+      const currentMap = data[mapIndex];
+      const totalCatItems = 1 + (currentMap && currentMap.categories ? currentMap.categories.length : 0);
+      categoryIndex = (categoryIndex + 1) % totalCatItems;
       lineupIndex = 0;
       render();
     } else if (currentLevel === 'lineups') {
-      const lineCount = data[mapIndex].categories[categoryIndex].lineups.length;
-      lineupIndex = (lineupIndex + 1) % lineCount;
-      render();
+      const currentMap = data[mapIndex];
+      const catIdx = categoryIndex > 0 ? categoryIndex - 1 : 0;
+      const currentCategory = currentMap && currentMap.categories ? currentMap.categories[catIdx] : null;
+      if (currentCategory && currentCategory.lineups && currentCategory.lineups.length > 0) {
+        const lineCount = currentCategory.lineups.length;
+        lineupIndex = (lineupIndex + 1) % lineCount;
+        render();
+      }
     }
   }
 
@@ -786,10 +926,10 @@
         if (newData && newData.length > 0) {
           // Attempt to keep previous location if valid
           const prevMapName = data && data[mapIndex] ? data[mapIndex].name : null;
-          const prevCatName = data && data[mapIndex] && data[mapIndex].categories[categoryIndex]
-            ? data[mapIndex].categories[categoryIndex].name : null;
-          const prevLineupName = data && data[mapIndex] && data[mapIndex].categories[categoryIndex] && data[mapIndex].categories[categoryIndex].lineups[lineupIndex]
-            ? data[mapIndex].categories[categoryIndex].lineups[lineupIndex].name : null;
+          const prevCatName = data && data[mapIndex] && categoryIndex > 0 && data[mapIndex].categories && data[mapIndex].categories[categoryIndex - 1]
+            ? data[mapIndex].categories[categoryIndex - 1].name : null;
+          const prevLineupName = prevCatName && data[mapIndex].categories[categoryIndex - 1].lineups && data[mapIndex].categories[categoryIndex - 1].lineups[lineupIndex]
+            ? data[mapIndex].categories[categoryIndex - 1].lineups[lineupIndex].name : null;
 
           data = newData;
 
@@ -797,16 +937,16 @@
             const foundMapIdx = data.findIndex(m => m.name === prevMapName);
             if (foundMapIdx !== -1) {
               mapIndex = foundMapIdx;
-              if (prevCatName) {
+              if (prevCatName && data[mapIndex].categories) {
                 const foundCatIdx = data[mapIndex].categories.findIndex(c => c.name === prevCatName);
                 if (foundCatIdx !== -1) {
-                  categoryIndex = foundCatIdx;
-                  if (prevLineupName) {
-                    const foundLineupIdx = data[mapIndex].categories[categoryIndex].lineups.findIndex(l => l.name === prevLineupName);
+                  categoryIndex = foundCatIdx + 1;
+                  if (prevLineupName && data[mapIndex].categories[foundCatIdx].lineups) {
+                    const foundLineupIdx = data[mapIndex].categories[foundCatIdx].lineups.findIndex(l => l.name === prevLineupName);
                     if (foundLineupIdx !== -1) {
                       lineupIndex = foundLineupIdx;
                     } else {
-                      lineupIndex = Math.max(0, Math.min(lineupIndex, data[mapIndex].categories[categoryIndex].lineups.length - 1));
+                      lineupIndex = Math.max(0, Math.min(lineupIndex, data[mapIndex].categories[foundCatIdx].lineups.length - 1));
                     }
                   }
                 } else {
@@ -918,6 +1058,38 @@
       e.stopPropagation();
       if (window.api && window.api.openExtensionDirectory) {
         window.api.openExtensionDirectory();
+      }
+    });
+  }
+
+  if (btnLineupCallout) {
+    btnLineupCallout.addEventListener('click', (e) => {
+      e.stopPropagation();
+      previousLevelBeforeOverview = 'lineups';
+      currentLevel = 'overview';
+      lastNavAnim = 'deeper';
+      render();
+    });
+  }
+
+  if (overviewBtnOpenFolder) {
+    overviewBtnOpenFolder.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentMap = data[mapIndex];
+      const mapName = currentMap ? currentMap.name : '';
+      if (window.api && window.api.openCalloutFolder) {
+        window.api.openCalloutFolder(mapName);
+      }
+    });
+  }
+
+  if (overviewEmptyOpenBtn) {
+    overviewEmptyOpenBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentMap = data[mapIndex];
+      const mapName = currentMap ? currentMap.name : '';
+      if (window.api && window.api.openCalloutFolder) {
+        window.api.openCalloutFolder(mapName);
       }
     });
   }

@@ -183,6 +183,22 @@ function scanLineupDirectory(baseDir) {
     }
   }
 
+  // Also discover any maps from Map_Callouts (S5 Premier Pool, etc.)
+  const calloutBase = getCalloutsDirectory();
+  if (calloutBase && fs.existsSync(calloutBase)) {
+    try {
+      const cEntries = fs.readdirSync(calloutBase, { withFileTypes: true });
+      for (const cEntry of cEntries) {
+        if (cEntry.isDirectory() && !cEntry.name.startsWith('.')) {
+          const exists = Array.from(mapsMap.keys()).some(k => normalizeMapName(k) === normalizeMapName(cEntry.name));
+          if (!exists) {
+            mapsMap.set(cEntry.name, new Map());
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
   const result = [];
   for (const [mName, catMap] of mapsMap.entries()) {
     const categories = [];
@@ -193,9 +209,14 @@ function scanLineupDirectory(baseDir) {
       }
     }
     categories.sort((a, b) => a.name.localeCompare(b.name));
-    if (categories.length > 0) {
-      result.push({ name: mName, categories });
-    }
+
+    const calloutData = findCalloutImage(mName);
+    result.push({
+      name: mName,
+      calloutImageUrl: calloutData.imagePath ? toAssetUrl(calloutData.imagePath) : null,
+      calloutFolderPath: calloutData.folderPath,
+      categories
+    });
   }
 
   result.sort((a, b) => a.name.localeCompare(b.name));
@@ -450,6 +471,93 @@ function getExtensionDirectory() {
   return srcDir;
 }
 
+function normalizeMapName(name) {
+  return (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function getDocumentsCalloutsDir() {
+  try {
+    return path.join(app.getPath('documents'), 'UtilityPlus', 'Map_Callouts');
+  } catch (e) {
+    return path.join(process.cwd(), 'Map_Callouts');
+  }
+}
+
+function getCalloutsDirectory() {
+  const docsDir = getDocumentsCalloutsDir();
+
+  let srcDir = null;
+  if (app.isPackaged) {
+    srcDir = path.join(process.resourcesPath, 'Map_Callouts');
+  } else {
+    srcDir = path.join(__dirname, 'Map_Callouts');
+  }
+
+  if (docsDir && srcDir && fs.existsSync(srcDir)) {
+    try {
+      copyDirectoryRecursively(srcDir, docsDir, false);
+    } catch (e) {}
+  }
+
+  if (docsDir && fs.existsSync(docsDir)) {
+    return docsDir;
+  }
+
+  return srcDir;
+}
+
+function findCalloutImage(mapName) {
+  const calloutBaseDir = getCalloutsDirectory();
+  const normalizedTarget = normalizeMapName(mapName);
+
+  const searchDirs = [];
+  if (calloutBaseDir && fs.existsSync(calloutBaseDir)) {
+    try {
+      const entries = fs.readdirSync(calloutBaseDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const norm = normalizeMapName(entry.name);
+          if (norm === normalizedTarget || norm.includes(normalizedTarget) || normalizedTarget.includes(norm)) {
+            searchDirs.push(path.join(calloutBaseDir, entry.name));
+          }
+        }
+      }
+    } catch (e) {}
+    searchDirs.push(path.join(calloutBaseDir, mapName));
+  }
+
+  // Also check CS2_Lineups/<MapName> as fallback
+  const lineupsDir = getLineupsDirectory();
+  if (lineupsDir && fs.existsSync(lineupsDir)) {
+    searchDirs.push(path.join(lineupsDir, mapName));
+  }
+
+  let existingFolder = null;
+  for (const dir of searchDirs) {
+    if (!fs.existsSync(dir)) continue;
+    if (!existingFolder) existingFolder = dir;
+    try {
+      const files = fs.readdirSync(dir);
+      const imgFile = files.find(f => /\.(png|jpe?g|webp|bmp)$/i.test(f) && !f.startsWith('.'));
+      if (imgFile) {
+        return {
+          imagePath: path.join(dir, imgFile),
+          folderPath: dir
+        };
+      }
+    } catch (e) {}
+  }
+
+  const targetFolder = existingFolder || path.join(calloutBaseDir || getDocumentsCalloutsDir(), mapName);
+  if (!fs.existsSync(targetFolder)) {
+    try { fs.mkdirSync(targetFolder, { recursive: true }); } catch (e) {}
+  }
+  return {
+    imagePath: null,
+    folderPath: targetFolder
+  };
+}
+
 function syncAndProtectLineups() {
   const docsDir = getDocumentsLineupsDir();
   if (!fs.existsSync(docsDir)) {
@@ -606,6 +714,7 @@ function setupAutoUpdater() {
 }
 
 let lineupsWatcher = null;
+let calloutsWatcher = null;
 let watcherDebounce = null;
 
 function watchLineupsDirectory() {
@@ -634,6 +743,29 @@ function watchLineupsDirectory() {
   } catch (err) {
     console.warn('Lineup directory watch error:', err);
   }
+
+  if (calloutsWatcher) {
+    try {
+      calloutsWatcher.close();
+    } catch (e) {}
+    calloutsWatcher = null;
+  }
+  const cDir = getCalloutsDirectory();
+  if (cDir && fs.existsSync(cDir)) {
+    try {
+      calloutsWatcher = fs.watch(cDir, { recursive: true }, (eventType, filename) => {
+        if (filename && (filename.startsWith('.') || filename.includes('tmp') || filename.endsWith('.crdownload'))) return;
+        clearTimeout(watcherDebounce);
+        watcherDebounce = setTimeout(() => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('lineups-updated');
+          }
+        }, 500);
+      });
+    } catch (err) {
+      console.warn('Callouts directory watch error:', err);
+    }
+  }
 }
 
   // Handle IPC request for data
@@ -661,6 +793,22 @@ function watchLineupsDirectory() {
     if (dir && fs.existsSync(dir)) {
       await shell.openPath(dir);
       return dir;
+    }
+    return null;
+  });
+
+  // Handle opening callout map directory for a specific map or base
+  ipcMain.handle('open-callout-folder', async (event, mapName) => {
+    const calloutData = findCalloutImage(mapName);
+    const folder = calloutData.folderPath;
+    if (folder && fs.existsSync(folder)) {
+      await shell.openPath(folder);
+      return folder;
+    }
+    const base = getCalloutsDirectory();
+    if (base && fs.existsSync(base)) {
+      await shell.openPath(base);
+      return base;
     }
     return null;
   });
