@@ -25,6 +25,71 @@ function toAssetUrl(filePath) {
   return 'asset://media/?path=' + encodeURIComponent(path.resolve(filePath));
 }
 
+function isLineupFolder(dirPath) {
+  try {
+    const files = fs.readdirSync(dirPath);
+    return files.some(f => /\.(mp4|webm|mkv|png|webp|jpe?g)$/i.test(f) || f === 'info.txt' || f === 'info.json');
+  } catch (e) {
+    return false;
+  }
+}
+
+function parseLineupDetails(lPath, folderName) {
+  let txtInfo = {};
+  const txtPath = path.join(lPath, 'info.txt');
+  if (fs.existsSync(txtPath)) {
+    try {
+      const content = fs.readFileSync(txtPath, 'utf-8');
+      for (const line of content.split('\n')) {
+        const match = line.match(/^([^:]+):\s*(.*)$/);
+        if (match) {
+          txtInfo[match[1].trim()] = match[2].trim();
+        }
+      }
+    } catch (e) {
+      console.error(`Fehler beim Lesen von ${txtPath}:`, e);
+    }
+  }
+
+  let jsonInfo = {};
+  const jsonPath = path.join(lPath, 'info.json');
+  if (fs.existsSync(jsonPath)) {
+    try {
+      jsonInfo = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+    } catch (e) {}
+  }
+
+  const name = txtInfo['Anzeige'] || jsonInfo.displayName || jsonInfo.name || folderName;
+  const techniqueLabel = txtInfo['Technik'] || jsonInfo.techniqueLabel || 'Standard';
+  const movementLabel = txtInfo['Bewegung'] || jsonInfo.movementLabel || 'Standard';
+  const precisionLabel = txtInfo['Präzision'] || jsonInfo.precisionLabel || 'Standard';
+
+  let rawMap = txtInfo['Map'] || jsonInfo.mapName || '';
+  if (rawMap.includes('(')) rawMap = rawMap.split('(')[0].trim();
+
+  let rawCat = txtInfo['Typ'] || jsonInfo.nadeTypeLabel || '';
+  if (rawCat.includes('(')) rawCat = rawCat.split('(')[0].trim();
+
+  const files = fs.readdirSync(lPath);
+  const video = files.find(f => /\.(mp4|webm|mkv)$/i.test(f));
+  let image = files.find(f => /\.(webp|png|jpe?g)$/i.test(f) && !f.toLowerCase().includes('thumb'));
+  if (!image) {
+    image = files.find(f => /\.(webp|png|jpe?g)$/i.test(f));
+  }
+
+  return {
+    folder: folderName,
+    name: name,
+    techniqueLabel: techniqueLabel,
+    movementLabel: movementLabel,
+    precisionLabel: precisionLabel,
+    videoUrl: video ? toAssetUrl(path.join(lPath, video)) : null,
+    imageUrl: image ? toAssetUrl(path.join(lPath, image)) : null,
+    mapHint: rawMap || null,
+    catHint: rawCat || null
+  };
+}
+
 function scanLineupDirectory(baseDir) {
   if (!fs.existsSync(baseDir)) {
     try {
@@ -33,96 +98,108 @@ function scanLineupDirectory(baseDir) {
     return [];
   }
 
-  const maps = [];
-  const mapEntries = fs.readdirSync(baseDir, { withFileTypes: true });
+  // If baseDir contains a nested CS2_Lineups or Lineups directory, unwrap it
+  try {
+    const topEntries = fs.readdirSync(baseDir, { withFileTypes: true });
+    const realDirs = topEntries.filter(e => !e.name.startsWith('.') && e.isDirectory());
+    if (realDirs.length === 1 && (realDirs[0].name.toLowerCase() === 'cs2_lineups' || realDirs[0].name.toLowerCase() === 'lineups')) {
+      baseDir = path.join(baseDir, realDirs[0].name);
+    }
+  } catch (e) {}
 
-  for (const mapEntry of mapEntries) {
-    if (mapEntry.name.startsWith('.') || !mapEntry.isDirectory()) continue;
-    const mapPath = path.join(baseDir, mapEntry.name);
+  const mapsMap = new Map(); // mapName -> Map of categoryName -> Array of lineups
 
-    const categories = [];
-    const catEntries = fs.readdirSync(mapPath, { withFileTypes: true });
+  function addLineup(mapName, catName, lineupObj) {
+    if (!mapsMap.has(mapName)) {
+      mapsMap.set(mapName, new Map());
+    }
+    const catMap = mapsMap.get(mapName);
+    if (!catMap.has(catName)) {
+      catMap.set(catName, []);
+    }
+    catMap.get(catName).push(lineupObj);
+  }
 
-    for (const catEntry of catEntries) {
-      if (catEntry.name.startsWith('.') || !catEntry.isDirectory()) continue;
-      const catPath = path.join(mapPath, catEntry.name);
+  let entries = [];
+  try {
+    entries = fs.readdirSync(baseDir, { withFileTypes: true });
+  } catch (e) {
+    return [];
+  }
 
-      const lineups = [];
-      const lineupEntries = fs.readdirSync(catPath, { withFileTypes: true });
+  for (const entry1 of entries) {
+    if (entry1.name.startsWith('.') || !entry1.isDirectory()) continue;
+    const path1 = path.join(baseDir, entry1.name);
 
-      for (const lEntry of lineupEntries) {
-        if (lEntry.name.startsWith('.') || !lEntry.isDirectory()) continue;
-        const lPath = path.join(catPath, lEntry.name);
-
-        let txtInfo = {};
-        const txtPath = path.join(lPath, 'info.txt');
-        if (fs.existsSync(txtPath)) {
-          try {
-            const content = fs.readFileSync(txtPath, 'utf-8');
-            for (const line of content.split('\n')) {
-              const match = line.match(/^([^:]+):\s*(.*)$/);
-              if (match) {
-                txtInfo[match[1].trim()] = match[2].trim();
-              }
-            }
-          } catch (e) {
-            console.error(`Fehler beim Lesen von ${txtPath}:`, e);
-          }
-        }
-
-        let jsonInfo = {};
-        const jsonPath = path.join(lPath, 'info.json');
-        if (fs.existsSync(jsonPath)) {
-          try {
-            jsonInfo = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-          } catch (e) {}
-        }
-
-        const name = txtInfo['Anzeige'] || jsonInfo.displayName || jsonInfo.name || lEntry.name;
-        const techniqueLabel = txtInfo['Technik'] || jsonInfo.techniqueLabel || 'Standard';
-        const movementLabel = txtInfo['Bewegung'] || jsonInfo.movementLabel || 'Standard';
-        const precisionLabel = txtInfo['Präzision'] || jsonInfo.precisionLabel || 'Standard';
-
-        const files = fs.readdirSync(lPath);
-        const video = files.find(f => /\.(mp4|webm|mkv)$/i.test(f));
-        let image = files.find(f => /\.(webp|png|jpe?g)$/i.test(f) && !f.toLowerCase().includes('thumb'));
-        if (!image) {
-          image = files.find(f => /\.(webp|png|jpe?g)$/i.test(f));
-        }
-
-        lineups.push({
-          folder: lEntry.name,
-          name: name,
-          techniqueLabel: techniqueLabel,
-          movementLabel: movementLabel,
-          precisionLabel: precisionLabel,
-          videoUrl: video ? toAssetUrl(path.join(lPath, video)) : null,
-          imageUrl: image ? toAssetUrl(path.join(lPath, image)) : null
-        });
-      }
-
-      lineups.sort((a, b) => a.name.localeCompare(b.name));
-
-      if (lineups.length > 0) {
-        categories.push({
-          name: catEntry.name,
-          lineups
-        });
-      }
+    // Case 1: Level 1 is already a lineup folder (flat list of lineups)
+    if (isLineupFolder(path1)) {
+      const parsed = parseLineupDetails(path1, entry1.name);
+      const mName = parsed.mapHint || 'Standard';
+      const cName = parsed.catHint || 'Allgemein';
+      addLineup(mName, cName, parsed);
+      continue;
     }
 
-    categories.sort((a, b) => a.name.localeCompare(b.name));
+    // Otherwise level 1 is a Map folder
+    let entries2 = [];
+    try {
+      entries2 = fs.readdirSync(path1, { withFileTypes: true });
+    } catch (e) {
+      continue;
+    }
 
-    if (categories.length > 0) {
-      maps.push({
-        name: mapEntry.name,
-        categories
-      });
+    for (const entry2 of entries2) {
+      if (entry2.name.startsWith('.') || !entry2.isDirectory()) continue;
+      const path2 = path.join(path1, entry2.name);
+
+      // Case 2: Level 2 is a lineup folder (Map -> Lineup without category)
+      if (isLineupFolder(path2)) {
+        const parsed = parseLineupDetails(path2, entry2.name);
+        const mName = parsed.mapHint || entry1.name;
+        const cName = parsed.catHint || 'Allgemein';
+        addLineup(mName, cName, parsed);
+        continue;
+      }
+
+      // Case 3: Level 2 is a Category folder (Map -> Category -> Lineup)
+      let entries3 = [];
+      try {
+        entries3 = fs.readdirSync(path2, { withFileTypes: true });
+      } catch (e) {
+        continue;
+      }
+
+      for (const entry3 of entries3) {
+        if (entry3.name.startsWith('.') || !entry3.isDirectory()) continue;
+        const path3 = path.join(path2, entry3.name);
+
+        if (isLineupFolder(path3)) {
+          const parsed = parseLineupDetails(path3, entry3.name);
+          const mName = parsed.mapHint || entry1.name;
+          const cName = parsed.catHint || entry2.name;
+          addLineup(mName, cName, parsed);
+        }
+      }
     }
   }
 
-  maps.sort((a, b) => a.name.localeCompare(b.name));
-  return maps;
+  const result = [];
+  for (const [mName, catMap] of mapsMap.entries()) {
+    const categories = [];
+    for (const [cName, lineups] of catMap.entries()) {
+      lineups.sort((a, b) => a.name.localeCompare(b.name));
+      if (lineups.length > 0) {
+        categories.push({ name: cName, lineups });
+      }
+    }
+    categories.sort((a, b) => a.name.localeCompare(b.name));
+    if (categories.length > 0) {
+      result.push({ name: mName, categories });
+    }
+  }
+
+  result.sort((a, b) => a.name.localeCompare(b.name));
+  return result;
 }
 
 function registerGlobalHotkeys() {
@@ -244,23 +321,55 @@ app.whenReady().then(() => {
     }
   });
 
+function hasActualContent(dirPath) {
+  if (!dirPath || !fs.existsSync(dirPath)) return false;
+  try {
+    const entries = fs.readdirSync(dirPath);
+    return entries.some(e => !e.startsWith('.') && !e.toLowerCase().includes('hier_lineups') && !e.toLowerCase().includes('readme'));
+  } catch (e) {
+    return false;
+  }
+}
+
 function getLineupsDirectory() {
+  const candidates = [];
+
   if (app.isPackaged) {
-    const resourcePath = path.join(process.resourcesPath, 'CS2_Lineups');
+    // 1. In installation folder right next to UtilityPlus.exe (e.g. C:\Program Files\UtilityPlus\CS2_Lineups)
+    candidates.push(path.join(path.dirname(process.execPath), 'CS2_Lineups'));
+    // 2. In resources directory (e.g. C:\Program Files\UtilityPlus\resources\CS2_Lineups)
+    candidates.push(path.join(process.resourcesPath, 'CS2_Lineups'));
+    // 3. User documents / saved lineups
+    try {
+      candidates.push(path.join(app.getPath('documents'), 'UtilityPlus', 'CS2_Lineups'));
+      candidates.push(path.join(app.getPath('documents'), 'CS2_Lineups'));
+    } catch (e) {}
+    // 4. AppData
+    try {
+      candidates.push(path.join(app.getPath('userData'), 'CS2_Lineups'));
+    } catch (e) {}
+  } else {
+    candidates.push(path.join(__dirname, 'CS2_Lineups'));
+    candidates.push(path.join(process.cwd(), 'CS2_Lineups'));
+  }
+
+  // Pick the first candidate that actually contains content/lineups
+  for (const candidate of candidates) {
+    if (hasActualContent(candidate)) {
+      return candidate;
+    }
+  }
+
+  // Fallback if none has content yet
+  if (app.isPackaged) {
     const execPath = path.join(path.dirname(process.execPath), 'CS2_Lineups');
-    if (fs.existsSync(resourcePath)) {
-      return resourcePath;
-    }
-    if (fs.existsSync(execPath)) {
-      return execPath;
-    }
-    return resourcePath;
+    const resourcePath = path.join(process.resourcesPath, 'CS2_Lineups');
+    if (fs.existsSync(execPath)) return execPath;
+    if (fs.existsSync(resourcePath)) return resourcePath;
+    return execPath;
   }
-  const devPath = path.join(__dirname, 'CS2_Lineups');
-  if (fs.existsSync(devPath)) {
-    return devPath;
-  }
-  return path.join(process.cwd(), 'CS2_Lineups');
+
+  return path.join(__dirname, 'CS2_Lineups');
 }
 
 let autoUpdater = null;
@@ -335,6 +444,7 @@ function watchLineupsDirectory() {
   // Handle IPC request for data
   ipcMain.handle('get-lineup-data', async () => {
     const rootDir = getLineupsDirectory();
+    watchLineupsDirectory();
     return scanLineupDirectory(rootDir);
   });
 
