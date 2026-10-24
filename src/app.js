@@ -912,6 +912,16 @@
     });
   });
 
+  const btnOpenExtension = document.getElementById('btn-open-extension');
+  if (btnOpenExtension) {
+    btnOpenExtension.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.api && window.api.openExtensionDirectory) {
+        window.api.openExtensionDirectory();
+      }
+    });
+  }
+
   if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeOptionsModal);
   if (modalSaveBtn) modalSaveBtn.addEventListener('click', closeOptionsModal);
 

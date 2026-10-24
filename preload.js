@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   getLineupData: () => ipcRenderer.invoke('get-lineup-data'),
   openLineupsDirectory: () => ipcRenderer.invoke('open-lineups-directory'),
+  openExtensionDirectory: () => ipcRenderer.invoke('open-extension-directory'),
   onLineupsUpdated: (callback) => {
     const handler = () => callback();
     ipcRenderer.on('lineups-updated', handler);

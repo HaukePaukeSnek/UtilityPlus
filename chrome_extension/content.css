@@ -1,0 +1,111 @@
+/* CS2 Nade Scraper - In-Page Button & Toast Styles */
+
+.cs2-quick-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #111827 !important;
+  font-weight: 700;
+  font-size: 0.825rem;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35);
+  margin-left: 10px;
+  z-index: 100;
+  user-select: none;
+}
+
+.cs2-quick-download-btn:hover {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(217, 119, 6, 0.5);
+}
+
+.cs2-quick-download-btn:active {
+  transform: translateY(0);
+}
+
+.cs2-quick-download-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.cs2-floating-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 10px 18px;
+  font-size: 0.9rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 99999;
+}
+
+/* Spinner */
+.cs2-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-top-color: #111827;
+  border-radius: 50%;
+  animation: cs2-spin 0.8s linear infinite;
+}
+
+@keyframes cs2-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Toast */
+.cs2-toast {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: #181a20;
+  border: 1px solid #2d3139;
+  border-left: 4px solid #f59e0b;
+  border-radius: 8px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #f3f4f6;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  z-index: 100000;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.cs2-toast-error {
+  border-left-color: #ef4444;
+}
+
+.cs2-toast-show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.cs2-toast-icon {
+  font-size: 1.4rem;
+}
+
+.cs2-toast-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9ca3af;
+  font-weight: 700;
+}
+
+.cs2-toast-msg {
+  font-size: 0.875rem;
+  color: #f9fafb;
+  font-weight: 500;
+}
+

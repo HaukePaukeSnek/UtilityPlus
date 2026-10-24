@@ -385,7 +385,7 @@ function getDocumentsLineupsDir() {
   }
 }
 
-function copyDirectoryRecursively(src, dest) {
+function copyDirectoryRecursively(src, dest, ignoreFilters = true) {
   if (!fs.existsSync(src)) return;
   if (path.resolve(src) === path.resolve(dest)) return;
   if (!fs.existsSync(dest)) {
@@ -400,11 +400,12 @@ function copyDirectoryRecursively(src, dest) {
     return;
   }
   for (const entry of entries) {
-    if (entry.name.startsWith('.') || entry.name.toLowerCase().includes('hier_lineups') || entry.name.toLowerCase().includes('readme')) continue;
+    if (entry.name.startsWith('.')) continue;
+    if (ignoreFilters && (entry.name.toLowerCase().includes('hier_lineups') || entry.name.toLowerCase().includes('readme'))) continue;
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
     if (entry.isDirectory()) {
-      copyDirectoryRecursively(srcPath, destPath);
+      copyDirectoryRecursively(srcPath, destPath, ignoreFilters);
     } else {
       if (!fs.existsSync(destPath)) {
         try {
@@ -413,6 +414,40 @@ function copyDirectoryRecursively(src, dest) {
       }
     }
   }
+}
+
+function getDocumentsExtensionDir() {
+  try {
+    return path.join(app.getPath('documents'), 'UtilityPlus', 'Chrome_Extension');
+  } catch (e) {
+    return null;
+  }
+}
+
+function getExtensionDirectory() {
+  const docsExtDir = getDocumentsExtensionDir();
+
+  let srcDir = null;
+  if (app.isPackaged) {
+    srcDir = path.join(process.resourcesPath, 'chrome_extension');
+  } else {
+    srcDir = path.join(__dirname, 'chrome_extension');
+  }
+
+  if (docsExtDir && srcDir && fs.existsSync(srcDir)) {
+    try {
+      copyDirectoryRecursively(srcDir, docsExtDir, false);
+      return docsExtDir;
+    } catch (e) {
+      console.warn('Fehler beim Synchronisieren der Chrome-Extension:', e);
+    }
+  }
+
+  if (docsExtDir && fs.existsSync(docsExtDir)) {
+    return docsExtDir;
+  }
+
+  return srcDir;
 }
 
 function syncAndProtectLineups() {
@@ -618,6 +653,16 @@ function watchLineupsDirectory() {
     }
     await shell.openPath(dir);
     return dir;
+  });
+
+  // Handle opening chrome extension directory in native file explorer / Finder
+  ipcMain.handle('open-extension-directory', async () => {
+    const dir = getExtensionDirectory();
+    if (dir && fs.existsSync(dir)) {
+      await shell.openPath(dir);
+      return dir;
+    }
+    return null;
   });
 
   ipcMain.handle('restart-and-install-update', () => {

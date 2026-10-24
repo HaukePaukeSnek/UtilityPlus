@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CS2 Nade Scraper</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 3v4"></path>
+            <path d="M12 17v4"></path>
+            <path d="M3 12h4"></path>
+            <path d="M17 12h4"></path>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">CS2 Nade Scraper</h1>
+          <span class="brand-subtitle">csnades.gg Downloader</span>
+        </div>
+      </div>
+      <button id="toggleSettingsBtn" class="icon-btn" title="Einstellungen anpassen">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="mainView">
+      <!-- Loading State -->
+      <div id="loadingState" class="state-card">
+        <div class="loader-spinner"></div>
+        <p>Prüfe aktive Seite...</p>
+      </div>
+
+      <!-- No Nade Page State -->
+      <div id="notNadeState" class="state-card hidden">
+        <div class="empty-icon">⚠️</div>
+        <h3>Kein Lineup geöffnet</h3>
+        <p>Bitte navigiere in Brave auf eine Granatenseite auf <strong>csnades.gg</strong>.</p>
+        <div class="sample-links">
+          <span>Beispiel-Lineups zum Testen:</span>
+          <div class="pill-buttons">
+            <a href="https://csnades.gg/mirage/smokes/bench-from-back-alley" target="_blank" class="pill-btn">Mirage Bench Smoke</a>
+            <a href="https://csnades.gg/inferno/smokes/coffins-from-banana" target="_blank" class="pill-btn">Inferno Coffins Smoke</a>
+            <a href="https://csnades.gg/dust2" target="_blank" class="pill-btn">Dust 2 Nades</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Nade Detected State -->
+      <div id="nadeState" class="hidden">
+        <!-- Info Card -->
+        <div class="nade-card">
+          <div class="nade-badges">
+            <span id="mapBadge" class="badge badge-map">Mirage</span>
+            <span id="typeBadge" class="badge badge-type">Smoke</span>
+            <span id="teamBadge" class="badge badge-team">T</span>
+          </div>
+
+          <h2 id="nadeTitle" class="nade-title">mirage bench from back alley</h2>
+          <div id="nadeSubtitle" class="nade-subtitle">Bench from Back Alley</div>
+
+          <!-- Metadata Tags -->
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">Technik:</span>
+              <span id="techVal" class="meta-val highlight">Left Click</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Bewegung:</span>
+              <span id="moveVal" class="meta-val">Stationary</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Präzision:</span>
+              <span id="precVal" class="meta-val">Precise</span>
+            </div>
+          </div>
+
+          <!-- Media Previews -->
+          <div class="preview-container">
+            <div class="preview-box">
+              <div class="preview-tag">Lineup Foto</div>
+              <img id="lineupImgPreview" src="" alt="Lineup Vorschau">
+            </div>
+            <div class="preview-box">
+              <div class="preview-tag">Video Vorschau</div>
+              <img id="thumbImgPreview" src="" alt="Video Vorschau">
+            </div>
+          </div>
+
+          <!-- Teleport Console Command -->
+          <div id="consoleRow" class="console-box hidden">
+            <div class="console-text" id="consoleText">setpos ...</div>
+            <button id="copyConsoleBtn" class="copy-btn" title="CS2 Teleport in Zwischenablage kopieren">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>Kopieren</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Download Action Section -->
+        <div class="action-card">
+          <div class="folder-preview-row">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span class="folder-path-text">Ordner: <strong id="currentFolderPreview">Downloads/CS2_Lineups/...</strong></span>
+          </div>
+
+          <button id="downloadBtn" class="primary-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span>Lineup herunterladen</span>
+          </button>
+
+          <!-- Status Message -->
+          <div id="statusMsg" class="status-box hidden"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Settings Panel (Collapsible/Toggle) -->
+    <section id="settingsView" class="settings-view hidden">
+      <div class="settings-header">
+        <h2>Speicher-Einstellungen</h2>
+        <button id="closeSettingsBtn" class="icon-btn-close">&times;</button>
+      </div>
+
+      <div class="setting-group">
+        <label for="baseFolderInput" class="setting-title">Zielverzeichnis (im Downloads-Ordner):</label>
+        <p class="setting-desc">Legt fest, in welchen Unterordner die Dateien gespeichert werden.</p>
+        <div class="input-with-icon">
+          <span class="input-prefix">Downloads/</span>
+          <input type="text" id="baseFolderInput" placeholder="CS2_Lineups" value="CS2_Lineups">
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-title">Ordner-Struktur:</label>
+        <div class="radio-row">
+          <label class="radio-label">
+            <input type="radio" name="folderStructure" value="nested" checked>
+            <span>Unterordner (z.B. <code>CS2_Lineups/Mirage/Smoke/bench.../</code>)</span>
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="folderStructure" value="flat">
+            <span>Flacher Ordner (z.B. <code>CS2_Lineups/Mirage_Smoke_bench.../</code>)</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="setting-group">
+        <label class="setting-title">Dateien zum Herunterladen:</label>
+        <div class="checkbox-list">
+          <label class="checkbox-item">
+            <input type="checkbox" id="chkVideo" checked>
+            <span>HD-Video (.mp4)</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" id="chkImage" checked>
+            <span>Lineup Fadenkreuz-Foto (.webp)</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" id="chkTxt" checked>
+            <span>Text-Übersicht mit Technik (.txt)</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" id="chkJson" checked>
+            <span>Metadaten als JSON (.json)</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" id="chkCfg" checked>
+            <span>CS2 Teleport Config (.cfg)</span>
+          </label>
+        </div>
+      </div>
+
+      <button id="saveSettingsBtn" class="save-settings-btn">Einstellungen speichern</button>
+    </section>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <a href="https://csnades.gg" target="_blank" class="footer-link">csnades.gg besuchen</a>
+      <span class="footer-sep">•</span>
+      <span class="footer-version">v1.0.0</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+
