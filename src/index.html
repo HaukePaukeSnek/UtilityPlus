@@ -21,14 +21,21 @@
           <div id="folder-breadcrumbs" class="breadcrumbs">KARTEN</div>
         </div>
         <div class="header-right">
-          <div class="shortcut-hint">
-            <span class="key-badge">↑</span> <span class="key-badge">↓</span> Auswählen
+          <div class="shortcut-hint" id="folder-shortcut-hint">
+            <span class="key-badge" id="hint-folder-up">↑</span> <span class="key-badge" id="hint-folder-down">↓</span> Auswählen
             <span class="separator">•</span>
-            <span class="key-badge">→</span> Öffnen
+            <span class="key-badge" id="hint-folder-right">→</span> Öffnen
             <span class="separator">•</span>
-            <span class="key-badge">←</span> Zurück
+            <span class="key-badge" id="hint-folder-left">←</span> Zurück
           </div>
           <div class="header-actions">
+            <button class="header-btn btn-settings" title="Optionen & Tastenbelegung">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>Optionen</span>
+            </button>
             <button class="header-btn btn-reload" title="Ressourcen neu laden (F5)">
               <svg class="icon-refresh" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="23 4 23 10 17 10"></polyline>
@@ -66,12 +73,21 @@
           <div id="lineup-counter" class="counter-badge">1 / 2</div>
         </div>
         <div class="header-right">
-          <div class="shortcut-hint">
-            <span class="key-badge">↑</span> <span class="key-badge">↓</span> Lineup wechseln
+          <div class="shortcut-hint" id="lineup-shortcut-hint">
+            <span class="key-badge" id="hint-key-up">↑</span> <span class="key-badge" id="hint-key-down">↓</span> Wechseln
             <span class="separator">•</span>
-            <span class="key-badge">←</span> Kategorien
+            <span class="key-badge" id="hint-key-pause">NUM 0</span> Pause
+            <span class="separator">•</span>
+            <span class="key-badge" id="hint-key-left">←</span> Kategorien
           </div>
           <div class="header-actions">
+            <button class="header-btn btn-settings" title="Optionen & Tastenbelegung">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>Optionen</span>
+            </button>
             <button class="header-btn btn-reload" title="Ressourcen neu laden (F5)">
               <svg class="icon-refresh" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="23 4 23 10 17 10"></polyline>
@@ -98,8 +114,15 @@
       <main class="media-container">
         <div class="media-card video-card">
           <div class="media-badge">VIDEO</div>
+          <div id="video-paused-badge" class="media-badge paused-badge" style="display:none">PAUSIERT (NUM 0)</div>
           <div class="media-frame">
             <video id="lineup-video" autoplay loop muted playsinline></video>
+            <div id="video-pause-overlay" class="video-pause-overlay" style="display:none">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="5" y="4" width="4.5" height="16" rx="1.5"></rect>
+                <rect x="14.5" y="4" width="4.5" height="16" rx="1.5"></rect>
+              </svg>
+            </div>
             <div id="landing-preview" class="landing-overlay">
               <canvas id="landing-canvas"></canvas>
             </div>
@@ -159,6 +182,13 @@
         </div>
         <div class="header-right">
           <div class="header-actions">
+            <button class="header-btn btn-settings" title="Optionen & Tastenbelegung">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>Optionen</span>
+            </button>
             <button class="header-btn btn-reload" title="Ressourcen neu laden (F5)">
               <svg class="icon-refresh" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="23 4 23 10 17 10"></polyline>
@@ -185,6 +215,13 @@
             </svg>
             <span>Lineups-Ordner öffnen</span>
           </button>
+          <button class="header-btn btn-settings" style="padding: 9px 14px; font-size: 0.88rem;" title="Optionen & Tastenbelegung">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span>Optionen</span>
+          </button>
           <button class="header-btn btn-reload" style="padding: 9px 14px; font-size: 0.88rem;" title="Neu laden">
             <svg class="icon-refresh" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="23 4 23 10 17 10"></polyline>
@@ -192,6 +229,85 @@
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
             </svg>
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Options & Hotkeys Modal -->
+    <div id="options-modal" class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div class="modal-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span>TASTENBELEGUNG & OPTIONEN</span>
+          </div>
+          <button id="modal-close-btn" class="modal-close-btn" title="Schließen">×</button>
+        </div>
+
+        <div class="modal-body">
+          <p class="modal-description">
+            Klicke auf ein Tastenfeld, um eine Aktion neu zu belegen. Die Hotkeys funktionieren im Programm und global im Spiel.
+          </p>
+
+          <div class="hotkeys-list">
+            <div class="hotkey-item">
+              <div class="hotkey-info">
+                <span class="hotkey-name">Video pausieren / abspielen</span>
+                <span class="hotkey-desc">Hält das aktuelle Lineup-Video an oder spielt es weiter</span>
+              </div>
+              <button class="key-bind-btn" data-action="playPause">
+                <span class="key-bind-label" id="bind-lbl-playPause">Numpad 0</span>
+              </button>
+            </div>
+
+            <div class="hotkey-item">
+              <div class="hotkey-info">
+                <span class="hotkey-name">Auswahl nach Oben</span>
+                <span class="hotkey-desc">Vorheriges Lineup / vorherige Kategorie / vorherige Karte</span>
+              </div>
+              <button class="key-bind-btn" data-action="up">
+                <span class="key-bind-label" id="bind-lbl-up">↑ Oben</span>
+              </button>
+            </div>
+
+            <div class="hotkey-item">
+              <div class="hotkey-info">
+                <span class="hotkey-name">Auswahl nach Unten</span>
+                <span class="hotkey-desc">Nächstes Lineup / nächste Kategorie / nächste Karte</span>
+              </div>
+              <button class="key-bind-btn" data-action="down">
+                <span class="key-bind-label" id="bind-lbl-down">↓ Unten</span>
+              </button>
+            </div>
+
+            <div class="hotkey-item">
+              <div class="hotkey-info">
+                <span class="hotkey-name">Zurück</span>
+                <span class="hotkey-desc">Ebene zurück (Lineups → Kategorien → Karten)</span>
+              </div>
+              <button class="key-bind-btn" data-action="left">
+                <span class="key-bind-label" id="bind-lbl-left">← Links</span>
+              </button>
+            </div>
+
+            <div class="hotkey-item">
+              <div class="hotkey-info">
+                <span class="hotkey-name">Öffnen / Auswählen</span>
+                <span class="hotkey-desc">Ebene tiefer (Karte auswählen, Kategorie öffnen)</span>
+              </div>
+              <button class="key-bind-btn" data-action="right">
+                <span class="key-bind-label" id="bind-lbl-right">→ Rechts</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="modal-reset-btn" class="modal-btn secondary">Standard wiederherstellen</button>
+          <button id="modal-save-btn" class="modal-btn primary">Fertig</button>
         </div>
       </div>
     </div>

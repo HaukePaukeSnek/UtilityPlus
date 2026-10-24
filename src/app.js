@@ -73,6 +73,8 @@
   let lastNavTime = 0;
 
   async function init() {
+    loadSavedHotkeys();
+
     try {
       if (window.api && window.api.getLineupData) {
         data = await window.api.getLineupData();
@@ -176,6 +178,11 @@
   }
 
   function renderMaps() {
+    const pauseBadge = document.getElementById('video-paused-badge');
+    const pauseOverlay = document.getElementById('video-pause-overlay');
+    if (pauseBadge) pauseBadge.style.display = 'none';
+    if (pauseOverlay) pauseOverlay.style.display = 'none';
+
     lineupVideo.pause();
     lineupVideo.removeAttribute('src');
     lineupVideo.dataset.currentSrc = '';
@@ -225,6 +232,11 @@
   }
 
   function renderCategories() {
+    const pauseBadge = document.getElementById('video-paused-badge');
+    const pauseOverlay = document.getElementById('video-pause-overlay');
+    if (pauseBadge) pauseBadge.style.display = 'none';
+    if (pauseOverlay) pauseOverlay.style.display = 'none';
+
     lineupVideo.pause();
     lineupVideo.removeAttribute('src');
     lineupVideo.dataset.currentSrc = '';
@@ -297,6 +309,11 @@
     lineupPrecision.textContent = currentLineup.precisionLabel || 'Standard';
 
     // Update Video (Loop playback with 1.5x speed)
+    const pauseBadge = document.getElementById('video-paused-badge');
+    const pauseOverlay = document.getElementById('video-pause-overlay');
+    if (pauseBadge) pauseBadge.style.display = 'none';
+    if (pauseOverlay) pauseOverlay.style.display = 'none';
+
     lineupVideo.muted = true;
     lineupVideo.loop = true;
     lineupVideo.defaultPlaybackRate = 1.5;
@@ -419,18 +436,253 @@
     else if (dir === 'right') navRight();
   }
 
+  // Hotkeys Management
+  const DEFAULT_HOTKEYS = {
+    playPause: { accelerator: 'num0', label: 'Numpad 0', domCode: 'Numpad0' },
+    up: { accelerator: 'Up', label: '↑ Oben', domCode: 'ArrowUp' },
+    down: { accelerator: 'Down', label: '↓ Unten', domCode: 'ArrowDown' },
+    left: { accelerator: 'Left', label: '← Links', domCode: 'ArrowLeft' },
+    right: { accelerator: 'Right', label: '→ Rechts', domCode: 'ArrowRight' }
+  };
+
+  let currentHotkeys = { ...DEFAULT_HOTKEYS };
+
+  function loadSavedHotkeys() {
+    try {
+      const saved = localStorage.getItem('utilityplus_hotkeys');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        currentHotkeys = { ...DEFAULT_HOTKEYS, ...parsed };
+      }
+    } catch (e) {}
+
+    if (window.api && window.api.setHotkeys) {
+      window.api.setHotkeys(currentHotkeys).catch(() => {});
+    }
+
+    updateHeaderShortcutHints();
+    updateModalButtonLabels();
+  }
+
+  function saveHotkeys(newHotkeys) {
+    currentHotkeys = { ...newHotkeys };
+    try {
+      localStorage.setItem('utilityplus_hotkeys', JSON.stringify(currentHotkeys));
+    } catch (e) {}
+
+    if (window.api && window.api.setHotkeys) {
+      window.api.setHotkeys(currentHotkeys).catch(() => {});
+    }
+
+    updateHeaderShortcutHints();
+    updateModalButtonLabels();
+  }
+
+  function keyEventToHotkey(e) {
+    const code = e.code;
+    const key = e.key;
+
+    if (code === 'Numpad0') return { accelerator: 'num0', label: 'Numpad 0', domCode: 'Numpad0' };
+    if (code === 'Numpad1') return { accelerator: 'num1', label: 'Numpad 1', domCode: 'Numpad1' };
+    if (code === 'Numpad2') return { accelerator: 'num2', label: 'Numpad 2', domCode: 'Numpad2' };
+    if (code === 'Numpad3') return { accelerator: 'num3', label: 'Numpad 3', domCode: 'Numpad3' };
+    if (code === 'Numpad4') return { accelerator: 'num4', label: 'Numpad 4', domCode: 'Numpad4' };
+    if (code === 'Numpad5') return { accelerator: 'num5', label: 'Numpad 5', domCode: 'Numpad5' };
+    if (code === 'Numpad6') return { accelerator: 'num6', label: 'Numpad 6', domCode: 'Numpad6' };
+    if (code === 'Numpad7') return { accelerator: 'num7', label: 'Numpad 7', domCode: 'Numpad7' };
+    if (code === 'Numpad8') return { accelerator: 'num8', label: 'Numpad 8', domCode: 'Numpad8' };
+    if (code === 'Numpad9') return { accelerator: 'num9', label: 'Numpad 9', domCode: 'Numpad9' };
+    if (code === 'NumpadDecimal') return { accelerator: 'numdec', label: 'Numpad ,', domCode: 'NumpadDecimal' };
+    if (code === 'NumpadAdd') return { accelerator: 'numadd', label: 'Numpad +', domCode: 'NumpadAdd' };
+    if (code === 'NumpadSubtract') return { accelerator: 'numsub', label: 'Numpad -', domCode: 'NumpadSubtract' };
+    if (code === 'NumpadMultiply') return { accelerator: 'nummult', label: 'Numpad *', domCode: 'NumpadMultiply' };
+    if (code === 'NumpadDivide') return { accelerator: 'numdiv', label: 'Numpad /', domCode: 'NumpadDivide' };
+
+    if (code === 'ArrowUp') return { accelerator: 'Up', label: '↑ Oben', domCode: 'ArrowUp' };
+    if (code === 'ArrowDown') return { accelerator: 'Down', label: '↓ Unten', domCode: 'ArrowDown' };
+    if (code === 'ArrowLeft') return { accelerator: 'Left', label: '← Links', domCode: 'ArrowLeft' };
+    if (code === 'ArrowRight') return { accelerator: 'Right', label: '→ Rechts', domCode: 'ArrowRight' };
+
+    if (code === 'Space') return { accelerator: 'Space', label: 'Leertaste', domCode: 'Space' };
+    if (code === 'Enter' || code === 'NumpadEnter') return { accelerator: 'Return', label: 'Enter', domCode: code };
+    if (code === 'Backspace') return { accelerator: 'Backspace', label: 'Rücktaste', domCode: 'Backspace' };
+    if (code === 'Tab') return { accelerator: 'Tab', label: 'Tab', domCode: 'Tab' };
+    if (code === 'Home') return { accelerator: 'Home', label: 'Pos 1', domCode: 'Home' };
+    if (code === 'End') return { accelerator: 'End', label: 'Ende', domCode: 'End' };
+    if (code === 'PageUp') return { accelerator: 'PageUp', label: 'Bild Auf', domCode: 'PageUp' };
+    if (code === 'PageDown') return { accelerator: 'PageDown', label: 'Bild Ab', domCode: 'PageDown' };
+    if (code === 'Insert') return { accelerator: 'Insert', label: 'Einfg', domCode: 'Insert' };
+    if (code === 'Delete') return { accelerator: 'Delete', label: 'Entf', domCode: 'Delete' };
+
+    if (code.startsWith('Key')) {
+      const letter = code.replace('Key', '').toUpperCase();
+      return { accelerator: letter, label: letter, domCode: code };
+    }
+    if (code.startsWith('Digit')) {
+      const digit = code.replace('Digit', '');
+      return { accelerator: digit, label: `Taste ${digit}`, domCode: code };
+    }
+    if (/^F\d+$/.test(code)) {
+      return { accelerator: code, label: code, domCode: code };
+    }
+
+    const clean = (key.length === 1 ? key.toUpperCase() : key);
+    return { accelerator: clean, label: clean, domCode: code || key };
+  }
+
+  function matchesHotkey(e, hotkey) {
+    if (!hotkey) return false;
+    if (hotkey.domCode && e.code === hotkey.domCode) return true;
+    if (hotkey.accelerator && (e.key === hotkey.accelerator || e.code === hotkey.accelerator)) return true;
+    if (hotkey.domCode === 'Numpad0' && (e.code === 'Numpad0' || (e.key === 'Insert' && e.location === 3))) return true;
+    return false;
+  }
+
+  function togglePlayPause() {
+    if (currentLevel !== 'lineups' || !lineupVideo) return;
+
+    const pauseBadge = document.getElementById('video-paused-badge');
+    const pauseOverlay = document.getElementById('video-pause-overlay');
+
+    if (lineupVideo.paused) {
+      lineupVideo.playbackRate = 1.5;
+      lineupVideo.play().then(() => {
+        lineupVideo.playbackRate = 1.5;
+        if (pauseBadge) pauseBadge.style.display = 'none';
+        if (pauseOverlay) pauseOverlay.style.display = 'none';
+      }).catch(err => {
+        console.warn('Play error:', err);
+      });
+    } else {
+      lineupVideo.pause();
+      if (pauseBadge) {
+        const lbl = currentHotkeys.playPause ? currentHotkeys.playPause.label : 'NUM 0';
+        pauseBadge.textContent = `PAUSIERT (${lbl.toUpperCase()})`;
+        pauseBadge.style.display = 'block';
+      }
+      if (pauseOverlay) {
+        pauseOverlay.style.display = 'flex';
+      }
+    }
+  }
+
+  // Options Modal & Key Recording Logic
+  const optionsModal = document.getElementById('options-modal');
+  const modalCloseBtn = document.getElementById('modal-close-btn');
+  const modalSaveBtn = document.getElementById('modal-save-btn');
+  const modalResetBtn = document.getElementById('modal-reset-btn');
+
+  let recordingAction = null;
+
+  function openOptionsModal() {
+    if (!optionsModal) return;
+    stopRecording();
+    updateModalButtonLabels();
+    optionsModal.classList.add('active');
+  }
+
+  function closeOptionsModal() {
+    if (!optionsModal) return;
+    stopRecording();
+    optionsModal.classList.remove('active');
+  }
+
+  function stopRecording() {
+    if (!recordingAction) return;
+    const btn = document.querySelector(`.key-bind-btn[data-action="${recordingAction}"]`);
+    if (btn) btn.classList.remove('recording');
+    updateModalButtonLabels();
+    recordingAction = null;
+  }
+
+  function updateModalButtonLabels() {
+    const actions = ['playPause', 'up', 'down', 'left', 'right'];
+    actions.forEach(act => {
+      const lbl = document.getElementById(`bind-lbl-${act}`);
+      if (lbl && currentHotkeys[act]) {
+        lbl.textContent = currentHotkeys[act].label || currentHotkeys[act].accelerator;
+      }
+    });
+  }
+
+  function updateHeaderShortcutHints() {
+    const hintPause = document.getElementById('hint-key-pause');
+    if (hintPause && currentHotkeys.playPause) {
+      hintPause.textContent = currentHotkeys.playPause.label.replace('Numpad ', 'NUM ');
+    }
+    const hintUp = document.getElementById('hint-key-up');
+    const folderHintUp = document.getElementById('hint-folder-up');
+    if (currentHotkeys.up) {
+      const upLbl = currentHotkeys.up.label.includes('Oben') ? '↑' : currentHotkeys.up.label;
+      if (hintUp) hintUp.textContent = upLbl;
+      if (folderHintUp) folderHintUp.textContent = upLbl;
+    }
+    const hintDown = document.getElementById('hint-key-down');
+    const folderHintDown = document.getElementById('hint-folder-down');
+    if (currentHotkeys.down) {
+      const downLbl = currentHotkeys.down.label.includes('Unten') ? '↓' : currentHotkeys.down.label;
+      if (hintDown) hintDown.textContent = downLbl;
+      if (folderHintDown) folderHintDown.textContent = downLbl;
+    }
+    const hintLeft = document.getElementById('hint-key-left');
+    const folderHintLeft = document.getElementById('hint-folder-left');
+    if (currentHotkeys.left) {
+      const leftLbl = currentHotkeys.left.label.includes('Links') ? '←' : currentHotkeys.left.label;
+      if (hintLeft) hintLeft.textContent = leftLbl;
+      if (folderHintLeft) folderHintLeft.textContent = leftLbl;
+    }
+    const folderHintRight = document.getElementById('hint-folder-right');
+    if (folderHintRight && currentHotkeys.right) {
+      folderHintRight.textContent = currentHotkeys.right.label.includes('Rechts') ? '→' : currentHotkeys.right.label;
+    }
+  }
+
   // Keyboard navigation when window has focus
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowUp') {
+    if (recordingAction) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.key === 'Escape') {
+        stopRecording();
+        return;
+      }
+
+      if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) {
+        return;
+      }
+
+      const hotkeyObj = keyEventToHotkey(e);
+      const updated = { ...currentHotkeys, [recordingAction]: hotkeyObj };
+      saveHotkeys(updated);
+      stopRecording();
+      return;
+    }
+
+    if (optionsModal && optionsModal.classList.contains('active')) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeOptionsModal();
+      }
+      return;
+    }
+
+    if (matchesHotkey(e, currentHotkeys.playPause)) {
+      e.preventDefault();
+      togglePlayPause();
+      return;
+    }
+
+    if (matchesHotkey(e, currentHotkeys.up)) {
       e.preventDefault();
       handleDirection('up');
-    } else if (e.key === 'ArrowDown') {
+    } else if (matchesHotkey(e, currentHotkeys.down)) {
       e.preventDefault();
       handleDirection('down');
-    } else if (e.key === 'ArrowLeft' || e.key === 'Backspace' || e.key === 'Escape') {
+    } else if (matchesHotkey(e, currentHotkeys.left) || e.key === 'Backspace' || e.key === 'Escape') {
       e.preventDefault();
       handleDirection('left');
-    } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
+    } else if (matchesHotkey(e, currentHotkeys.right) || e.key === 'Enter') {
       e.preventDefault();
       handleDirection('right');
     }
@@ -440,6 +692,12 @@
   if (window.api && window.api.onGlobalNavigate) {
     window.api.onGlobalNavigate((direction) => {
       handleDirection(direction);
+    });
+  }
+
+  if (window.api && window.api.onGlobalPlayPause) {
+    window.api.onGlobalPlayPause(() => {
+      togglePlayPause();
     });
   }
 
@@ -643,6 +901,41 @@
       if (window.api && window.api.openLineupsDirectory) {
         window.api.openLineupsDirectory();
       }
+    });
+  });
+
+  // Open settings / options modal buttons
+  document.querySelectorAll('.btn-settings').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openOptionsModal();
+    });
+  });
+
+  if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeOptionsModal);
+  if (modalSaveBtn) modalSaveBtn.addEventListener('click', closeOptionsModal);
+
+  if (modalResetBtn) {
+    modalResetBtn.addEventListener('click', () => {
+      saveHotkeys(DEFAULT_HOTKEYS);
+      stopRecording();
+    });
+  }
+
+  // Key recording click handler
+  document.querySelectorAll('.key-bind-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const action = btn.dataset.action;
+      if (recordingAction === action) {
+        stopRecording();
+        return;
+      }
+      stopRecording();
+      recordingAction = action;
+      btn.classList.add('recording');
+      const lbl = btn.querySelector('.key-bind-label');
+      if (lbl) lbl.textContent = 'Taste drücken...';
     });
   });
 

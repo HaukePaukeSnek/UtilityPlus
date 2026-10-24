@@ -13,6 +13,13 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('global-navigate', handler);
     return () => ipcRenderer.removeListener('global-navigate', handler);
   },
+  onGlobalPlayPause: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on('global-play-pause', handler);
+    return () => ipcRenderer.removeListener('global-play-pause', handler);
+  },
+  getHotkeys: () => ipcRenderer.invoke('get-hotkeys'),
+  setHotkeys: (hotkeys) => ipcRenderer.invoke('set-hotkeys', hotkeys),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   onUpdateChecking: (callback) => {
     const handler = () => callback();

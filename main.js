@@ -202,25 +202,81 @@ function scanLineupDirectory(baseDir) {
   return result;
 }
 
-function registerGlobalHotkeys() {
-  const directions = [
-    { key: 'Up', dir: 'up' },
-    { key: 'Down', dir: 'down' },
-    { key: 'Left', dir: 'left' },
-    { key: 'Right', dir: 'right' }
-  ];
+const DEFAULT_HOTKEYS = {
+  playPause: { accelerator: 'num0', label: 'Numpad 0', domCode: 'Numpad0' },
+  up: { accelerator: 'Up', label: '↑ Oben', domCode: 'ArrowUp' },
+  down: { accelerator: 'Down', label: '↓ Unten', domCode: 'ArrowDown' },
+  left: { accelerator: 'Left', label: '← Links', domCode: 'ArrowLeft' },
+  right: { accelerator: 'Right', label: '→ Rechts', domCode: 'ArrowRight' }
+};
 
-  directions.forEach(({ key, dir }) => {
+let currentHotkeys = { ...DEFAULT_HOTKEYS };
+
+function getHotkeysFilePath() {
+  try {
+    return path.join(app.getPath('userData'), 'hotkeys.json');
+  } catch (e) {
+    return null;
+  }
+}
+
+function loadHotkeysFromDisk() {
+  const filePath = getHotkeysFilePath();
+  if (filePath && fs.existsSync(filePath)) {
     try {
-      globalShortcut.register(key, () => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('global-navigate', dir);
-        }
-      });
-    } catch (err) {
-      console.warn(`Konnte globalen Hotkey '${key}' nicht registrieren:`, err);
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      currentHotkeys = { ...DEFAULT_HOTKEYS, ...data };
+    } catch (e) {
+      console.warn('Fehler beim Laden der Hotkeys:', e);
     }
-  });
+  }
+  return currentHotkeys;
+}
+
+function saveHotkeysToDisk(hotkeys) {
+  const filePath = getHotkeysFilePath();
+  if (filePath) {
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(hotkeys, null, 2), 'utf-8');
+    } catch (e) {
+      console.warn('Fehler beim Speichern der Hotkeys:', e);
+    }
+  }
+}
+
+function registerGlobalHotkeys(hotkeys) {
+  try {
+    globalShortcut.unregisterAll();
+  } catch (e) {}
+
+  currentHotkeys = hotkeys || loadHotkeysFromDisk();
+
+  for (const [action, item] of Object.entries(currentHotkeys)) {
+    if (!item || !item.accelerator) continue;
+
+    const registerKey = (acc) => {
+      try {
+        globalShortcut.register(acc, () => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            if (action === 'playPause') {
+              mainWindow.webContents.send('global-play-pause');
+            } else {
+              mainWindow.webContents.send('global-navigate', action);
+            }
+          }
+        });
+      } catch (err) {
+        console.warn(`Konnte globalen Hotkey '${acc}' für '${action}' nicht registrieren:`, err);
+      }
+    };
+
+    registerKey(item.accelerator);
+
+    // If playPause is num0, also register Insert as fallback for when NumLock is off on Windows
+    if (action === 'playPause' && item.accelerator.toLowerCase() === 'num0') {
+      registerKey('Insert');
+    }
+  }
 }
 
 app.setName('UtilityPlus');
@@ -579,6 +635,19 @@ function watchLineupsDirectory() {
       }
     }
     return null;
+  });
+
+  ipcMain.handle('get-hotkeys', () => {
+    return loadHotkeysFromDisk();
+  });
+
+  ipcMain.handle('set-hotkeys', (event, newHotkeys) => {
+    if (newHotkeys && typeof newHotkeys === 'object') {
+      currentHotkeys = { ...DEFAULT_HOTKEYS, ...newHotkeys };
+      saveHotkeysToDisk(currentHotkeys);
+      registerGlobalHotkeys(currentHotkeys);
+    }
+    return currentHotkeys;
   });
 
   createWindow();
