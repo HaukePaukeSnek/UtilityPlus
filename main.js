@@ -90,6 +90,461 @@ function parseLineupDetails(lPath, folderName) {
   };
 }
 
+function normalizeMapName(name) {
+  return (name || '')
+    .toLowerCase()
+    .replace(/^de_/, '')
+    .replace(/[^a-z0-9]/g, '')
+    .replace(/ii$/, '2');
+}
+
+function getDocumentsLineupsDir() {
+  try {
+    return path.join(app.getPath('documents'), 'UtilityPlus', 'CS2_Lineups');
+  } catch (e) {
+    return path.join(process.cwd(), 'CS2_Lineups');
+  }
+}
+
+function copyDirectoryRecursively(src, dest, ignoreFilters = true) {
+  if (!fs.existsSync(src)) return;
+  if (path.resolve(src) === path.resolve(dest)) return;
+  if (!fs.existsSync(dest)) {
+    try {
+      fs.mkdirSync(dest, { recursive: true });
+    } catch (e) {}
+  }
+  let entries = [];
+  try {
+    entries = fs.readdirSync(src, { withFileTypes: true });
+  } catch (e) {
+    return;
+  }
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+    if (ignoreFilters && (entry.name.toLowerCase().includes('hier_lineups') || entry.name.toLowerCase().includes('readme'))) continue;
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDirectoryRecursively(srcPath, destPath, ignoreFilters);
+    } else {
+      if (!fs.existsSync(destPath)) {
+        try {
+          fs.copyFileSync(srcPath, destPath);
+        } catch (e) {}
+      }
+    }
+  }
+}
+
+function getDocumentsExtensionDir() {
+  try {
+    return path.join(app.getPath('documents'), 'UtilityPlus', 'Chrome_Extension');
+  } catch (e) {
+    return null;
+  }
+}
+
+function getExtensionDirectory() {
+  const docsExtDir = getDocumentsExtensionDir();
+
+  let srcDir = null;
+  if (app.isPackaged) {
+    srcDir = path.join(process.resourcesPath, 'chrome_extension');
+  } else {
+    srcDir = path.join(__dirname, 'chrome_extension');
+  }
+
+  if (docsExtDir && srcDir && fs.existsSync(srcDir)) {
+    try {
+      copyDirectoryRecursively(srcDir, docsExtDir, false);
+      return docsExtDir;
+    } catch (e) {
+      console.warn('Fehler beim Synchronisieren der Chrome-Extension:', e);
+    }
+  }
+
+  if (docsExtDir && fs.existsSync(docsExtDir)) {
+    return docsExtDir;
+  }
+
+  return srcDir;
+}
+
+function getDocumentsCalloutsDir() {
+  try {
+    return path.join(app.getPath('documents'), 'UtilityPlus', 'Map_Callouts');
+  } catch (e) {
+    return path.join(process.cwd(), 'Map_Callouts');
+  }
+}
+
+function getCandidateCalloutDirs() {
+  const dirs = [];
+
+  // Local workspace / project directories
+  dirs.push(path.join(__dirname, 'Map_Callouts'));
+  dirs.push(path.join(process.cwd(), 'Map_Callouts'));
+
+  // Packaged app paths
+  if (app.isPackaged) {
+    try {
+      dirs.push(path.join(process.resourcesPath, 'Map_Callouts'));
+      dirs.push(path.join(path.dirname(process.execPath), 'Map_Callouts'));
+    } catch (e) {}
+  }
+
+  // Documents directory
+  try {
+    const docsDir = getDocumentsCalloutsDir();
+    if (docsDir) dirs.push(docsDir);
+  } catch (e) {}
+
+  const unique = [];
+  for (const d of dirs) {
+    if (d && !unique.includes(d) && fs.existsSync(d)) {
+      unique.push(d);
+    }
+  }
+  return unique;
+}
+
+function getCalloutsDirectory() {
+  const docsDir = getDocumentsCalloutsDir();
+
+  let srcDir = null;
+  if (app.isPackaged) {
+    srcDir = path.join(process.resourcesPath, 'Map_Callouts');
+  } else {
+    srcDir = path.join(__dirname, 'Map_Callouts');
+  }
+
+  if (docsDir && srcDir && fs.existsSync(srcDir)) {
+    try {
+      copyDirectoryRecursively(srcDir, docsDir, false);
+    } catch (e) {}
+  }
+
+  // In packaged mode, prefer Documents; in dev mode, prefer local project folder if it exists
+  if (!app.isPackaged && srcDir && fs.existsSync(srcDir)) {
+    return srcDir;
+  }
+
+  if (docsDir && fs.existsSync(docsDir)) {
+    return docsDir;
+  }
+
+  return srcDir;
+}
+
+function findCalloutImage(mapName) {
+  const normTarget = normalizeMapName(mapName);
+  const candidateBases = getCandidateCalloutDirs();
+
+  // 1. Search inside map subfolders of every candidate base
+  for (const base of candidateBases) {
+    try {
+      const entries = fs.readdirSync(base, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory() && !entry.name.startsWith('.')) {
+          const normDir = normalizeMapName(entry.name);
+          if (normDir === normTarget || normDir.includes(normTarget) || normTarget.includes(normDir)) {
+            const folderPath = path.join(base, entry.name);
+            const files = fs.readdirSync(folderPath);
+            const imgFile = files.find(f => /\.(png|jpe?g|webp|bmp|gif)$/i.test(f) && !f.startsWith('.'));
+            if (imgFile) {
+              return {
+                imagePath: path.join(folderPath, imgFile),
+                folderPath: folderPath
+              };
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 2. Search direct image file in any candidate base (e.g. Map_Callouts/Mirage.png, Map_Callouts/de_dust2.jpg)
+  for (const base of candidateBases) {
+    try {
+      const files = fs.readdirSync(base);
+      for (const file of files) {
+        if (file.startsWith('.')) continue;
+        const ext = path.extname(file);
+        if (/\.(png|jpe?g|webp|bmp|gif)$/i.test(ext)) {
+          const nameWithoutExt = path.basename(file, ext);
+          if (normalizeMapName(nameWithoutExt) === normTarget) {
+            return {
+              imagePath: path.join(base, file),
+              folderPath: base
+            };
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 3. Search inside CS2_Lineups/<mapName>/
+  const lineupsDir = getLineupsDirectory();
+  if (lineupsDir && fs.existsSync(lineupsDir)) {
+    try {
+      const entries = fs.readdirSync(lineupsDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory() && !entry.name.startsWith('.')) {
+          const normDir = normalizeMapName(entry.name);
+          if (normDir === normTarget || normDir.includes(normTarget) || normTarget.includes(normDir)) {
+            const folderPath = path.join(lineupsDir, entry.name);
+            const files = fs.readdirSync(folderPath);
+            const imgFile = files.find(f => /\.(png|jpe?g|webp|bmp|gif)$/i.test(f) && !f.startsWith('.'));
+            if (imgFile) {
+              return {
+                imagePath: path.join(folderPath, imgFile),
+                folderPath: folderPath
+              };
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Fallback: determine preferred folder path to open/create for this map
+  let targetFolder = null;
+  for (const base of candidateBases) {
+    const directSub = path.join(base, mapName);
+    if (fs.existsSync(directSub)) {
+      targetFolder = directSub;
+      break;
+    }
+  }
+
+  if (!targetFolder) {
+    const primaryBase = candidateBases[0] || (app.isPackaged ? getDocumentsCalloutsDir() : path.join(__dirname, 'Map_Callouts'));
+    targetFolder = path.join(primaryBase, mapName);
+    try {
+      fs.mkdirSync(targetFolder, { recursive: true });
+    } catch (e) {}
+  }
+
+  return {
+    imagePath: null,
+    folderPath: targetFolder
+  };
+}
+
+function hasActualContent(dirPath) {
+  if (!dirPath || !fs.existsSync(dirPath)) return false;
+  try {
+    const entries = fs.readdirSync(dirPath);
+    return entries.some(e => !e.startsWith('.') && !e.toLowerCase().includes('hier_lineups') && !e.toLowerCase().includes('readme'));
+  } catch (e) {
+    return false;
+  }
+}
+
+function syncAndProtectLineups() {
+  const docsDir = getDocumentsLineupsDir();
+  if (!fs.existsSync(docsDir)) {
+    try {
+      fs.mkdirSync(docsDir, { recursive: true });
+    } catch (e) {}
+  }
+
+  if (app.isPackaged) {
+    // Check if any old lineups exist in Program Files (resources or root) and safely migrate them to Documents
+    const resourcePath = path.join(process.resourcesPath, 'CS2_Lineups');
+    const execPath = path.join(path.dirname(process.execPath), 'CS2_Lineups');
+
+    if (hasActualContent(resourcePath)) {
+      copyDirectoryRecursively(resourcePath, docsDir);
+    }
+    if (hasActualContent(execPath)) {
+      copyDirectoryRecursively(execPath, docsDir);
+    }
+  }
+}
+
+function getLineupsDirectory() {
+  syncAndProtectLineups();
+
+  const docsDir = getDocumentsLineupsDir();
+  if (hasActualContent(docsDir)) {
+    return docsDir;
+  }
+
+  const candidates = [];
+  if (app.isPackaged) {
+    candidates.push(path.join(path.dirname(process.execPath), 'CS2_Lineups'));
+    candidates.push(path.join(process.resourcesPath, 'CS2_Lineups'));
+  } else {
+    candidates.push(path.join(__dirname, 'CS2_Lineups'));
+    candidates.push(path.join(process.cwd(), 'CS2_Lineups'));
+  }
+
+  for (const candidate of candidates) {
+    if (hasActualContent(candidate)) {
+      return candidate;
+    }
+  }
+
+  return docsDir;
+}
+
+let autoUpdater = null;
+try {
+  autoUpdater = require('electron-updater').autoUpdater;
+} catch (e) {}
+
+function setupAutoUpdater() {
+  if (!autoUpdater) return;
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  // File logging to inspect update status on Windows
+  let logFile = '';
+  try {
+    logFile = path.join(app.getPath('userData'), 'updater.log');
+  } catch (e) {}
+
+  function logUpdate(msg) {
+    console.log('[AutoUpdater]', msg);
+    if (logFile) {
+      try {
+        fs.appendFileSync(logFile, `[${new Date().toISOString()}] ${msg}\n`);
+      } catch (e) {}
+    }
+  }
+
+  autoUpdater.logger = {
+    info: (msg) => logUpdate(`[INFO] ${msg}`),
+    warn: (msg) => logUpdate(`[WARN] ${msg}`),
+    error: (msg) => logUpdate(`[ERROR] ${msg}`)
+  };
+
+  logUpdate(`Initialized. App version: ${app.getVersion()}`);
+
+  autoUpdater.on('checking-for-update', () => {
+    logUpdate('Checking for update on GitHub...');
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-checking');
+    }
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    logUpdate(`Update available: v${info.version}`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-available', {
+        version: info.version
+      });
+    }
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    const percent = Math.round(progressObj.percent);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-progress', percent);
+    }
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    logUpdate(`Update downloaded successfully: v${info.version}`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-downloaded', {
+        version: info.version
+      });
+    }
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    logUpdate(`No update available. Current version is up to date (${info ? info.version : ''})`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-not-available');
+    }
+  });
+
+  autoUpdater.on('error', (err) => {
+    logUpdate(`Error: ${err ? err.stack || err.message : err}`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-error', err ? err.message : 'Fehler beim Update');
+    }
+  });
+
+  if (app.isPackaged) {
+    // Initial check after window opens
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch((err) => {
+        logUpdate(`Check error: ${err.message}`);
+      });
+    }, 2500);
+
+    // Periodic check every 15 minutes
+    setInterval(() => {
+      autoUpdater.checkForUpdates().catch((err) => {
+        logUpdate(`Periodic check error: ${err.message}`);
+      });
+    }, 15 * 60 * 1000);
+  }
+}
+
+let lineupsWatcher = null;
+let calloutsWatchers = [];
+let watcherDebounce = null;
+
+function watchLineupsDirectory() {
+  if (lineupsWatcher) {
+    try {
+      lineupsWatcher.close();
+    } catch (e) {}
+    lineupsWatcher = null;
+  }
+  const dir = getLineupsDirectory();
+  if (dir && !fs.existsSync(dir)) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch (e) {}
+  }
+  if (dir && fs.existsSync(dir)) {
+    try {
+      lineupsWatcher = fs.watch(dir, { recursive: true }, (eventType, filename) => {
+        if (filename && (filename.startsWith('.') || filename.includes('tmp') || filename.endsWith('.crdownload'))) return;
+        clearTimeout(watcherDebounce);
+        watcherDebounce = setTimeout(() => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('lineups-updated');
+          }
+        }, 500);
+      });
+    } catch (err) {
+      console.warn('Lineup directory watch error:', err);
+    }
+  }
+
+  // Clear existing callout watchers
+  calloutsWatchers.forEach(w => {
+    try { w.close(); } catch (e) {}
+  });
+  calloutsWatchers = [];
+
+  const calloutDirs = getCandidateCalloutDirs();
+  for (const cDir of calloutDirs) {
+    try {
+      const w = fs.watch(cDir, { recursive: true }, (eventType, filename) => {
+        if (filename && (filename.startsWith('.') || filename.includes('tmp') || filename.endsWith('.crdownload'))) return;
+        clearTimeout(watcherDebounce);
+        watcherDebounce = setTimeout(() => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('lineups-updated');
+          }
+        }, 500);
+      });
+      calloutsWatchers.push(w);
+    } catch (err) {
+      console.warn('Callouts directory watch error for', cDir, err);
+    }
+  }
+}
+
 function scanLineupDirectory(baseDir) {
   if (!fs.existsSync(baseDir)) {
     try {
@@ -397,461 +852,6 @@ app.whenReady().then(() => {
       return new Response('Asset not found', { status: 404 });
     }
   });
-
-function getDocumentsLineupsDir() {
-  try {
-    return path.join(app.getPath('documents'), 'UtilityPlus', 'CS2_Lineups');
-  } catch (e) {
-    return path.join(process.cwd(), 'CS2_Lineups');
-  }
-}
-
-function copyDirectoryRecursively(src, dest, ignoreFilters = true) {
-  if (!fs.existsSync(src)) return;
-  if (path.resolve(src) === path.resolve(dest)) return;
-  if (!fs.existsSync(dest)) {
-    try {
-      fs.mkdirSync(dest, { recursive: true });
-    } catch (e) {}
-  }
-  let entries = [];
-  try {
-    entries = fs.readdirSync(src, { withFileTypes: true });
-  } catch (e) {
-    return;
-  }
-  for (const entry of entries) {
-    if (entry.name.startsWith('.')) continue;
-    if (ignoreFilters && (entry.name.toLowerCase().includes('hier_lineups') || entry.name.toLowerCase().includes('readme'))) continue;
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
-    if (entry.isDirectory()) {
-      copyDirectoryRecursively(srcPath, destPath, ignoreFilters);
-    } else {
-      if (!fs.existsSync(destPath)) {
-        try {
-          fs.copyFileSync(srcPath, destPath);
-        } catch (e) {}
-      }
-    }
-  }
-}
-
-function getDocumentsExtensionDir() {
-  try {
-    return path.join(app.getPath('documents'), 'UtilityPlus', 'Chrome_Extension');
-  } catch (e) {
-    return null;
-  }
-}
-
-function getExtensionDirectory() {
-  const docsExtDir = getDocumentsExtensionDir();
-
-  let srcDir = null;
-  if (app.isPackaged) {
-    srcDir = path.join(process.resourcesPath, 'chrome_extension');
-  } else {
-    srcDir = path.join(__dirname, 'chrome_extension');
-  }
-
-  if (docsExtDir && srcDir && fs.existsSync(srcDir)) {
-    try {
-      copyDirectoryRecursively(srcDir, docsExtDir, false);
-      return docsExtDir;
-    } catch (e) {
-      console.warn('Fehler beim Synchronisieren der Chrome-Extension:', e);
-    }
-  }
-
-  if (docsExtDir && fs.existsSync(docsExtDir)) {
-    return docsExtDir;
-  }
-
-  return srcDir;
-}
-
-function normalizeMapName(name) {
-  return (name || '')
-    .toLowerCase()
-    .replace(/^de_/, '')
-    .replace(/[^a-z0-9]/g, '')
-    .replace(/ii$/, '2');
-}
-
-function getDocumentsCalloutsDir() {
-  try {
-    return path.join(app.getPath('documents'), 'UtilityPlus', 'Map_Callouts');
-  } catch (e) {
-    return path.join(process.cwd(), 'Map_Callouts');
-  }
-}
-
-function getCandidateCalloutDirs() {
-  const dirs = [];
-
-  // Local workspace / project directories
-  dirs.push(path.join(__dirname, 'Map_Callouts'));
-  dirs.push(path.join(process.cwd(), 'Map_Callouts'));
-
-  // Packaged app paths
-  if (app.isPackaged) {
-    try {
-      dirs.push(path.join(process.resourcesPath, 'Map_Callouts'));
-      dirs.push(path.join(path.dirname(process.execPath), 'Map_Callouts'));
-    } catch (e) {}
-  }
-
-  // Documents directory
-  try {
-    const docsDir = getDocumentsCalloutsDir();
-    if (docsDir) dirs.push(docsDir);
-  } catch (e) {}
-
-  const unique = [];
-  for (const d of dirs) {
-    if (d && !unique.includes(d) && fs.existsSync(d)) {
-      unique.push(d);
-    }
-  }
-  return unique;
-}
-
-function getCalloutsDirectory() {
-  const docsDir = getDocumentsCalloutsDir();
-
-  let srcDir = null;
-  if (app.isPackaged) {
-    srcDir = path.join(process.resourcesPath, 'Map_Callouts');
-  } else {
-    srcDir = path.join(__dirname, 'Map_Callouts');
-  }
-
-  if (docsDir && srcDir && fs.existsSync(srcDir)) {
-    try {
-      copyDirectoryRecursively(srcDir, docsDir, false);
-    } catch (e) {}
-  }
-
-  // In packaged mode, prefer Documents; in dev mode, prefer local project folder if it exists
-  if (!app.isPackaged && srcDir && fs.existsSync(srcDir)) {
-    return srcDir;
-  }
-
-  if (docsDir && fs.existsSync(docsDir)) {
-    return docsDir;
-  }
-
-  return srcDir;
-}
-
-function findCalloutImage(mapName) {
-  const normTarget = normalizeMapName(mapName);
-  const candidateBases = getCandidateCalloutDirs();
-
-  // 1. Search inside map subfolders of every candidate base
-  for (const base of candidateBases) {
-    try {
-      const entries = fs.readdirSync(base, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isDirectory() && !entry.name.startsWith('.')) {
-          const normDir = normalizeMapName(entry.name);
-          if (normDir === normTarget || normDir.includes(normTarget) || normTarget.includes(normDir)) {
-            const folderPath = path.join(base, entry.name);
-            const files = fs.readdirSync(folderPath);
-            const imgFile = files.find(f => /\.(png|jpe?g|webp|bmp|gif)$/i.test(f) && !f.startsWith('.'));
-            if (imgFile) {
-              return {
-                imagePath: path.join(folderPath, imgFile),
-                folderPath: folderPath
-              };
-            }
-          }
-        }
-      }
-    } catch (e) {}
-  }
-
-  // 2. Search direct image file in any candidate base (e.g. Map_Callouts/Mirage.png, Map_Callouts/de_dust2.jpg)
-  for (const base of candidateBases) {
-    try {
-      const files = fs.readdirSync(base);
-      for (const file of files) {
-        if (file.startsWith('.')) continue;
-        const ext = path.extname(file);
-        if (/\.(png|jpe?g|webp|bmp|gif)$/i.test(ext)) {
-          const nameWithoutExt = path.basename(file, ext);
-          if (normalizeMapName(nameWithoutExt) === normTarget) {
-            return {
-              imagePath: path.join(base, file),
-              folderPath: base
-            };
-          }
-        }
-      }
-    } catch (e) {}
-  }
-
-  // 3. Search inside CS2_Lineups/<mapName>/
-  const lineupsDir = getLineupsDirectory();
-  if (lineupsDir && fs.existsSync(lineupsDir)) {
-    try {
-      const entries = fs.readdirSync(lineupsDir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isDirectory() && !entry.name.startsWith('.')) {
-          const normDir = normalizeMapName(entry.name);
-          if (normDir === normTarget || normDir.includes(normTarget) || normTarget.includes(normDir)) {
-            const folderPath = path.join(lineupsDir, entry.name);
-            const files = fs.readdirSync(folderPath);
-            const imgFile = files.find(f => /\.(png|jpe?g|webp|bmp|gif)$/i.test(f) && !f.startsWith('.'));
-            if (imgFile) {
-              return {
-                imagePath: path.join(folderPath, imgFile),
-                folderPath: folderPath
-              };
-            }
-          }
-        }
-      }
-    } catch (e) {}
-  }
-
-  // Fallback: determine preferred folder path to open/create for this map
-  let targetFolder = null;
-  for (const base of candidateBases) {
-    const directSub = path.join(base, mapName);
-    if (fs.existsSync(directSub)) {
-      targetFolder = directSub;
-      break;
-    }
-  }
-
-  if (!targetFolder) {
-    const primaryBase = candidateBases[0] || (app.isPackaged ? getDocumentsCalloutsDir() : path.join(__dirname, 'Map_Callouts'));
-    targetFolder = path.join(primaryBase, mapName);
-    try {
-      fs.mkdirSync(targetFolder, { recursive: true });
-    } catch (e) {}
-  }
-
-  return {
-    imagePath: null,
-    folderPath: targetFolder
-  };
-}
-
-function syncAndProtectLineups() {
-  const docsDir = getDocumentsLineupsDir();
-  if (!fs.existsSync(docsDir)) {
-    try {
-      fs.mkdirSync(docsDir, { recursive: true });
-    } catch (e) {}
-  }
-
-  if (app.isPackaged) {
-    // Check if any old lineups exist in Program Files (resources or root) and safely migrate them to Documents
-    const resourcePath = path.join(process.resourcesPath, 'CS2_Lineups');
-    const execPath = path.join(path.dirname(process.execPath), 'CS2_Lineups');
-
-    if (hasActualContent(resourcePath)) {
-      copyDirectoryRecursively(resourcePath, docsDir);
-    }
-    if (hasActualContent(execPath)) {
-      copyDirectoryRecursively(execPath, docsDir);
-    }
-  }
-}
-
-function hasActualContent(dirPath) {
-  if (!dirPath || !fs.existsSync(dirPath)) return false;
-  try {
-    const entries = fs.readdirSync(dirPath);
-    return entries.some(e => !e.startsWith('.') && !e.toLowerCase().includes('hier_lineups') && !e.toLowerCase().includes('readme'));
-  } catch (e) {
-    return false;
-  }
-}
-
-function getLineupsDirectory() {
-  syncAndProtectLineups();
-
-  const docsDir = getDocumentsLineupsDir();
-  if (hasActualContent(docsDir)) {
-    return docsDir;
-  }
-
-  const candidates = [];
-  if (app.isPackaged) {
-    candidates.push(path.join(path.dirname(process.execPath), 'CS2_Lineups'));
-    candidates.push(path.join(process.resourcesPath, 'CS2_Lineups'));
-  } else {
-    candidates.push(path.join(__dirname, 'CS2_Lineups'));
-    candidates.push(path.join(process.cwd(), 'CS2_Lineups'));
-  }
-
-  for (const candidate of candidates) {
-    if (hasActualContent(candidate)) {
-      return candidate;
-    }
-  }
-
-  return docsDir;
-}
-
-let autoUpdater = null;
-try {
-  autoUpdater = require('electron-updater').autoUpdater;
-} catch (e) {}
-
-function setupAutoUpdater() {
-  if (!autoUpdater) return;
-
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
-
-  // File logging to inspect update status on Windows
-  let logFile = '';
-  try {
-    logFile = path.join(app.getPath('userData'), 'updater.log');
-  } catch (e) {}
-
-  function logUpdate(msg) {
-    console.log('[AutoUpdater]', msg);
-    if (logFile) {
-      try {
-        fs.appendFileSync(logFile, `[${new Date().toISOString()}] ${msg}\n`);
-      } catch (e) {}
-    }
-  }
-
-  autoUpdater.logger = {
-    info: (msg) => logUpdate(`[INFO] ${msg}`),
-    warn: (msg) => logUpdate(`[WARN] ${msg}`),
-    error: (msg) => logUpdate(`[ERROR] ${msg}`)
-  };
-
-  logUpdate(`Initialized. App version: ${app.getVersion()}`);
-
-  autoUpdater.on('checking-for-update', () => {
-    logUpdate('Checking for update on GitHub...');
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-checking');
-    }
-  });
-
-  autoUpdater.on('update-available', (info) => {
-    logUpdate(`Update available: v${info.version}`);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-available', {
-        version: info.version
-      });
-    }
-  });
-
-  autoUpdater.on('download-progress', (progressObj) => {
-    const percent = Math.round(progressObj.percent);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-progress', percent);
-    }
-  });
-
-  autoUpdater.on('update-downloaded', (info) => {
-    logUpdate(`Update downloaded successfully: v${info.version}`);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-downloaded', {
-        version: info.version
-      });
-    }
-  });
-
-  autoUpdater.on('update-not-available', (info) => {
-    logUpdate(`No update available. Current version is up to date (${info ? info.version : ''})`);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-not-available');
-    }
-  });
-
-  autoUpdater.on('error', (err) => {
-    logUpdate(`Error: ${err ? err.stack || err.message : err}`);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('update-error', err ? err.message : 'Fehler beim Update');
-    }
-  });
-
-  if (app.isPackaged) {
-    // Initial check after window opens
-    setTimeout(() => {
-      autoUpdater.checkForUpdates().catch((err) => {
-        logUpdate(`Check error: ${err.message}`);
-      });
-    }, 2500);
-
-    // Periodic check every 15 minutes
-    setInterval(() => {
-      autoUpdater.checkForUpdates().catch((err) => {
-        logUpdate(`Periodic check error: ${err.message}`);
-      });
-    }, 15 * 60 * 1000);
-  }
-}
-
-let lineupsWatcher = null;
-let calloutsWatchers = [];
-let watcherDebounce = null;
-
-function watchLineupsDirectory() {
-  if (lineupsWatcher) {
-    try {
-      lineupsWatcher.close();
-    } catch (e) {}
-    lineupsWatcher = null;
-  }
-  const dir = getLineupsDirectory();
-  if (dir && !fs.existsSync(dir)) {
-    try {
-      fs.mkdirSync(dir, { recursive: true });
-    } catch (e) {}
-  }
-  if (dir && fs.existsSync(dir)) {
-    try {
-      lineupsWatcher = fs.watch(dir, { recursive: true }, (eventType, filename) => {
-        if (filename && (filename.startsWith('.') || filename.includes('tmp') || filename.endsWith('.crdownload'))) return;
-        clearTimeout(watcherDebounce);
-        watcherDebounce = setTimeout(() => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('lineups-updated');
-          }
-        }, 500);
-      });
-    } catch (err) {
-      console.warn('Lineup directory watch error:', err);
-    }
-  }
-
-  // Clear existing callout watchers
-  calloutsWatchers.forEach(w => {
-    try { w.close(); } catch (e) {}
-  });
-  calloutsWatchers = [];
-
-  const calloutDirs = getCandidateCalloutDirs();
-  for (const cDir of calloutDirs) {
-    try {
-      const w = fs.watch(cDir, { recursive: true }, (eventType, filename) => {
-        if (filename && (filename.startsWith('.') || filename.includes('tmp') || filename.endsWith('.crdownload'))) return;
-        clearTimeout(watcherDebounce);
-        watcherDebounce = setTimeout(() => {
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('lineups-updated');
-          }
-        }, 500);
-      });
-      calloutsWatchers.push(w);
-    } catch (err) {
-      console.warn('Callouts directory watch error for', cDir, err);
-    }
-  }
-}
 
   // Handle IPC request for data
   ipcMain.handle('get-lineup-data', async () => {
