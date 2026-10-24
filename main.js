@@ -321,6 +321,66 @@ app.whenReady().then(() => {
     }
   });
 
+function getDocumentsLineupsDir() {
+  try {
+    return path.join(app.getPath('documents'), 'UtilityPlus', 'CS2_Lineups');
+  } catch (e) {
+    return path.join(process.cwd(), 'CS2_Lineups');
+  }
+}
+
+function copyDirectoryRecursively(src, dest) {
+  if (!fs.existsSync(src)) return;
+  if (path.resolve(src) === path.resolve(dest)) return;
+  if (!fs.existsSync(dest)) {
+    try {
+      fs.mkdirSync(dest, { recursive: true });
+    } catch (e) {}
+  }
+  let entries = [];
+  try {
+    entries = fs.readdirSync(src, { withFileTypes: true });
+  } catch (e) {
+    return;
+  }
+  for (const entry of entries) {
+    if (entry.name.startsWith('.') || entry.name.toLowerCase().includes('hier_lineups') || entry.name.toLowerCase().includes('readme')) continue;
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDirectoryRecursively(srcPath, destPath);
+    } else {
+      if (!fs.existsSync(destPath)) {
+        try {
+          fs.copyFileSync(srcPath, destPath);
+        } catch (e) {}
+      }
+    }
+  }
+}
+
+function syncAndProtectLineups() {
+  const docsDir = getDocumentsLineupsDir();
+  if (!fs.existsSync(docsDir)) {
+    try {
+      fs.mkdirSync(docsDir, { recursive: true });
+    } catch (e) {}
+  }
+
+  if (app.isPackaged) {
+    // Check if any old lineups exist in Program Files (resources or root) and safely migrate them to Documents
+    const resourcePath = path.join(process.resourcesPath, 'CS2_Lineups');
+    const execPath = path.join(path.dirname(process.execPath), 'CS2_Lineups');
+
+    if (hasActualContent(resourcePath)) {
+      copyDirectoryRecursively(resourcePath, docsDir);
+    }
+    if (hasActualContent(execPath)) {
+      copyDirectoryRecursively(execPath, docsDir);
+    }
+  }
+}
+
 function hasActualContent(dirPath) {
   if (!dirPath || !fs.existsSync(dirPath)) return false;
   try {
@@ -332,44 +392,29 @@ function hasActualContent(dirPath) {
 }
 
 function getLineupsDirectory() {
-  const candidates = [];
+  syncAndProtectLineups();
 
+  const docsDir = getDocumentsLineupsDir();
+  if (hasActualContent(docsDir)) {
+    return docsDir;
+  }
+
+  const candidates = [];
   if (app.isPackaged) {
-    // 1. In installation folder right next to UtilityPlus.exe (e.g. C:\Program Files\UtilityPlus\CS2_Lineups)
     candidates.push(path.join(path.dirname(process.execPath), 'CS2_Lineups'));
-    // 2. In resources directory (e.g. C:\Program Files\UtilityPlus\resources\CS2_Lineups)
     candidates.push(path.join(process.resourcesPath, 'CS2_Lineups'));
-    // 3. User documents / saved lineups
-    try {
-      candidates.push(path.join(app.getPath('documents'), 'UtilityPlus', 'CS2_Lineups'));
-      candidates.push(path.join(app.getPath('documents'), 'CS2_Lineups'));
-    } catch (e) {}
-    // 4. AppData
-    try {
-      candidates.push(path.join(app.getPath('userData'), 'CS2_Lineups'));
-    } catch (e) {}
   } else {
     candidates.push(path.join(__dirname, 'CS2_Lineups'));
     candidates.push(path.join(process.cwd(), 'CS2_Lineups'));
   }
 
-  // Pick the first candidate that actually contains content/lineups
   for (const candidate of candidates) {
     if (hasActualContent(candidate)) {
       return candidate;
     }
   }
 
-  // Fallback if none has content yet
-  if (app.isPackaged) {
-    const execPath = path.join(path.dirname(process.execPath), 'CS2_Lineups');
-    const resourcePath = path.join(process.resourcesPath, 'CS2_Lineups');
-    if (fs.existsSync(execPath)) return execPath;
-    if (fs.existsSync(resourcePath)) return resourcePath;
-    return execPath;
-  }
-
-  return path.join(__dirname, 'CS2_Lineups');
+  return docsDir;
 }
 
 let autoUpdater = null;
@@ -383,7 +428,38 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
+  // File logging to inspect update status on Windows
+  let logFile = '';
+  try {
+    logFile = path.join(app.getPath('userData'), 'updater.log');
+  } catch (e) {}
+
+  function logUpdate(msg) {
+    console.log('[AutoUpdater]', msg);
+    if (logFile) {
+      try {
+        fs.appendFileSync(logFile, `[${new Date().toISOString()}] ${msg}\n`);
+      } catch (e) {}
+    }
+  }
+
+  autoUpdater.logger = {
+    info: (msg) => logUpdate(`[INFO] ${msg}`),
+    warn: (msg) => logUpdate(`[WARN] ${msg}`),
+    error: (msg) => logUpdate(`[ERROR] ${msg}`)
+  };
+
+  logUpdate(`Initialized. App version: ${app.getVersion()}`);
+
+  autoUpdater.on('checking-for-update', () => {
+    logUpdate('Checking for update on GitHub...');
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-checking');
+    }
+  });
+
   autoUpdater.on('update-available', (info) => {
+    logUpdate(`Update available: v${info.version}`);
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('update-available', {
         version: info.version
@@ -391,7 +467,15 @@ function setupAutoUpdater() {
     }
   });
 
+  autoUpdater.on('download-progress', (progressObj) => {
+    const percent = Math.round(progressObj.percent);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-progress', percent);
+    }
+  });
+
   autoUpdater.on('update-downloaded', (info) => {
+    logUpdate(`Update downloaded successfully: v${info.version}`);
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('update-downloaded', {
         version: info.version
@@ -399,14 +483,34 @@ function setupAutoUpdater() {
     }
   });
 
+  autoUpdater.on('update-not-available', (info) => {
+    logUpdate(`No update available. Current version is up to date (${info ? info.version : ''})`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-not-available');
+    }
+  });
+
   autoUpdater.on('error', (err) => {
-    console.log('[AutoUpdater] Info:', err.message);
+    logUpdate(`Error: ${err ? err.stack || err.message : err}`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-error', err ? err.message : 'Fehler beim Update');
+    }
   });
 
   if (app.isPackaged) {
+    // Initial check after window opens
     setTimeout(() => {
-      autoUpdater.checkForUpdates().catch(() => {});
-    }, 4000);
+      autoUpdater.checkForUpdates().catch((err) => {
+        logUpdate(`Check error: ${err.message}`);
+      });
+    }, 2500);
+
+    // Periodic check every 15 minutes
+    setInterval(() => {
+      autoUpdater.checkForUpdates().catch((err) => {
+        logUpdate(`Periodic check error: ${err.message}`);
+      });
+    }, 15 * 60 * 1000);
   }
 }
 
@@ -464,6 +568,17 @@ function watchLineupsDirectory() {
     if (autoUpdater) {
       autoUpdater.quitAndInstall();
     }
+  });
+
+  ipcMain.handle('check-for-updates', async () => {
+    if (autoUpdater && app.isPackaged) {
+      try {
+        return await autoUpdater.checkForUpdates();
+      } catch (e) {
+        return { error: e.message };
+      }
+    }
+    return null;
   });
 
   createWindow();

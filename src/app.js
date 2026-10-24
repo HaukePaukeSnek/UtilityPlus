@@ -449,6 +449,8 @@
   const updateBtn = document.getElementById('update-btn');
   const updateClose = document.getElementById('update-close');
 
+  let activeUpdateVersion = '';
+
   if (updateClose) {
     updateClose.addEventListener('click', () => {
       updateBanner.classList.remove('visible');
@@ -465,8 +467,19 @@
 
   if (window.api && window.api.onUpdateAvailable) {
     window.api.onUpdateAvailable((info) => {
+      activeUpdateVersion = (info && info.version) || '';
       if (updateBanner && updateText) {
-        updateText.textContent = `🚀 Update v${info.version || ''} wird geladen...`;
+        updateText.textContent = `🚀 Update v${activeUpdateVersion} gefunden. Wird geladen...`;
+        if (updateBtn) updateBtn.style.display = 'none';
+        updateBanner.classList.add('visible');
+      }
+    });
+  }
+
+  if (window.api && window.api.onUpdateProgress) {
+    window.api.onUpdateProgress((percent) => {
+      if (updateBanner && updateText) {
+        updateText.textContent = `🚀 Update v${activeUpdateVersion || ''} wird geladen... ${percent}%`;
         if (updateBtn) updateBtn.style.display = 'none';
         updateBanner.classList.add('visible');
       }
@@ -475,11 +488,24 @@
 
   if (window.api && window.api.onUpdateDownloaded) {
     window.api.onUpdateDownloaded((info) => {
+      const v = (info && info.version) || activeUpdateVersion || '';
       if (updateBanner && updateText && updateBtn) {
-        updateText.textContent = `✨ Update v${info.version || ''} bereit!`;
+        updateText.textContent = `✨ Update v${v} bereit!`;
         updateBtn.style.display = 'inline-block';
         updateBtn.textContent = 'Jetzt installieren';
         updateBanner.classList.add('visible');
+      }
+    });
+  }
+
+  if (window.api && window.api.onUpdateError) {
+    window.api.onUpdateError((err) => {
+      console.warn('AutoUpdate Fehler:', err);
+      if (updateBanner && updateBanner.classList.contains('visible') && updateBtn && updateBtn.style.display === 'none') {
+        if (updateText) updateText.textContent = `Update-Fehler: ${err || 'Unbekannt'}`;
+        setTimeout(() => {
+          if (updateBanner) updateBanner.classList.remove('visible');
+        }, 5000);
       }
     });
   }
@@ -566,6 +592,9 @@
 
   function triggerManualRefresh() {
     refreshData(false);
+    if (window.api && window.api.checkForUpdates) {
+      window.api.checkForUpdates().catch(() => {});
+    }
   }
 
   function updateMediaTileSize() {

@@ -1,7 +1,7 @@
 {
   "name": "utilityplus",
   "productName": "UtilityPlus",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "UtilityPlus - CS2 Granaten Lineup Assistant",
   "main": "main.js",
   "scripts": {
@@ -46,7 +46,8 @@
           ]
         }
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "verifyUpdateCodeSignature": false
     },
     "nsis": {
       "oneClick": false,
@@ -57,7 +58,8 @@
       "shortcutName": "UtilityPlus",
       "installerIcon": "assets/icon.ico",
       "uninstallerIcon": "assets/icon.ico",
-      "uninstallDisplayName": "UtilityPlus"
+      "uninstallDisplayName": "UtilityPlus",
+      "include": "build/installer.nsh"
     },
     "mac": {
       "target": [
