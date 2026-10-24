@@ -222,7 +222,13 @@
           <img id="overview-img" alt="Callout Map" />
         </div>
         <div id="overview-empty-state" class="overview-empty-card" style="display:none">
-          <div class="overview-empty-icon">🗺️</div>
+          <div class="overview-empty-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+              <line x1="8" y1="2" x2="8" y2="18"></line>
+              <line x1="16" y1="6" x2="16" y2="22"></line>
+            </svg>
+          </div>
           <h2 id="overview-empty-title">Keine Übersichtskarte für diese Map gefunden</h2>
           <p id="overview-empty-text">Lege einen Screenshot der Karte mit Callouts in den Ordner ab.</p>
           <button id="overview-empty-open-btn" class="header-btn" style="padding: 9px 18px; font-size: 0.88rem; margin-top: 14px;">

@@ -289,7 +289,7 @@
 
     const calloutName = document.createElement('span');
     calloutName.className = 'folder-item-name';
-    calloutName.textContent = '🗺️ Übersichtskarte (Callouts)';
+    calloutName.textContent = 'Übersichtskarte (Callouts)';
 
     const calloutMeta = document.createElement('div');
     calloutMeta.className = 'folder-item-meta';

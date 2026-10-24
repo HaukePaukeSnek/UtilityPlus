@@ -992,8 +992,12 @@ body {
 }
 
 .overview-empty-icon {
-  font-size: 3rem;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.85;
 }
 
 .overview-empty-card h2 {

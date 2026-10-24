@@ -184,8 +184,8 @@ function scanLineupDirectory(baseDir) {
   }
 
   // Also discover any maps from Map_Callouts (S5 Premier Pool, etc.)
-  const calloutBase = getCalloutsDirectory();
-  if (calloutBase && fs.existsSync(calloutBase)) {
+  const candidateBases = getCandidateCalloutDirs();
+  for (const calloutBase of candidateBases) {
     try {
       const cEntries = fs.readdirSync(calloutBase, { withFileTypes: true });
       for (const cEntry of cEntries) {
@@ -472,7 +472,11 @@ function getExtensionDirectory() {
 }
 
 function normalizeMapName(name) {
-  return (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return (name || '')
+    .toLowerCase()
+    .replace(/^de_/, '')
+    .replace(/[^a-z0-9]/g, '')
+    .replace(/ii$/, '2');
 }
 
 function getDocumentsCalloutsDir() {
@@ -481,6 +485,36 @@ function getDocumentsCalloutsDir() {
   } catch (e) {
     return path.join(process.cwd(), 'Map_Callouts');
   }
+}
+
+function getCandidateCalloutDirs() {
+  const dirs = [];
+
+  // Local workspace / project directories
+  dirs.push(path.join(__dirname, 'Map_Callouts'));
+  dirs.push(path.join(process.cwd(), 'Map_Callouts'));
+
+  // Packaged app paths
+  if (app.isPackaged) {
+    try {
+      dirs.push(path.join(process.resourcesPath, 'Map_Callouts'));
+      dirs.push(path.join(path.dirname(process.execPath), 'Map_Callouts'));
+    } catch (e) {}
+  }
+
+  // Documents directory
+  try {
+    const docsDir = getDocumentsCalloutsDir();
+    if (docsDir) dirs.push(docsDir);
+  } catch (e) {}
+
+  const unique = [];
+  for (const d of dirs) {
+    if (d && !unique.includes(d) && fs.existsSync(d)) {
+      unique.push(d);
+    }
+  }
+  return unique;
 }
 
 function getCalloutsDirectory() {
@@ -499,6 +533,11 @@ function getCalloutsDirectory() {
     } catch (e) {}
   }
 
+  // In packaged mode, prefer Documents; in dev mode, prefer local project folder if it exists
+  if (!app.isPackaged && srcDir && fs.existsSync(srcDir)) {
+    return srcDir;
+  }
+
   if (docsDir && fs.existsSync(docsDir)) {
     return docsDir;
   }
@@ -507,51 +546,94 @@ function getCalloutsDirectory() {
 }
 
 function findCalloutImage(mapName) {
-  const calloutBaseDir = getCalloutsDirectory();
-  const normalizedTarget = normalizeMapName(mapName);
+  const normTarget = normalizeMapName(mapName);
+  const candidateBases = getCandidateCalloutDirs();
 
-  const searchDirs = [];
-  if (calloutBaseDir && fs.existsSync(calloutBaseDir)) {
+  // 1. Search inside map subfolders of every candidate base
+  for (const base of candidateBases) {
     try {
-      const entries = fs.readdirSync(calloutBaseDir, { withFileTypes: true });
+      const entries = fs.readdirSync(base, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.isDirectory()) {
-          const norm = normalizeMapName(entry.name);
-          if (norm === normalizedTarget || norm.includes(normalizedTarget) || normalizedTarget.includes(norm)) {
-            searchDirs.push(path.join(calloutBaseDir, entry.name));
+        if (entry.isDirectory() && !entry.name.startsWith('.')) {
+          const normDir = normalizeMapName(entry.name);
+          if (normDir === normTarget || normDir.includes(normTarget) || normTarget.includes(normDir)) {
+            const folderPath = path.join(base, entry.name);
+            const files = fs.readdirSync(folderPath);
+            const imgFile = files.find(f => /\.(png|jpe?g|webp|bmp|gif)$/i.test(f) && !f.startsWith('.'));
+            if (imgFile) {
+              return {
+                imagePath: path.join(folderPath, imgFile),
+                folderPath: folderPath
+              };
+            }
           }
         }
       }
     } catch (e) {}
-    searchDirs.push(path.join(calloutBaseDir, mapName));
   }
 
-  // Also check CS2_Lineups/<MapName> as fallback
-  const lineupsDir = getLineupsDirectory();
-  if (lineupsDir && fs.existsSync(lineupsDir)) {
-    searchDirs.push(path.join(lineupsDir, mapName));
-  }
-
-  let existingFolder = null;
-  for (const dir of searchDirs) {
-    if (!fs.existsSync(dir)) continue;
-    if (!existingFolder) existingFolder = dir;
+  // 2. Search direct image file in any candidate base (e.g. Map_Callouts/Mirage.png, Map_Callouts/de_dust2.jpg)
+  for (const base of candidateBases) {
     try {
-      const files = fs.readdirSync(dir);
-      const imgFile = files.find(f => /\.(png|jpe?g|webp|bmp)$/i.test(f) && !f.startsWith('.'));
-      if (imgFile) {
-        return {
-          imagePath: path.join(dir, imgFile),
-          folderPath: dir
-        };
+      const files = fs.readdirSync(base);
+      for (const file of files) {
+        if (file.startsWith('.')) continue;
+        const ext = path.extname(file);
+        if (/\.(png|jpe?g|webp|bmp|gif)$/i.test(ext)) {
+          const nameWithoutExt = path.basename(file, ext);
+          if (normalizeMapName(nameWithoutExt) === normTarget) {
+            return {
+              imagePath: path.join(base, file),
+              folderPath: base
+            };
+          }
+        }
       }
     } catch (e) {}
   }
 
-  const targetFolder = existingFolder || path.join(calloutBaseDir || getDocumentsCalloutsDir(), mapName);
-  if (!fs.existsSync(targetFolder)) {
-    try { fs.mkdirSync(targetFolder, { recursive: true }); } catch (e) {}
+  // 3. Search inside CS2_Lineups/<mapName>/
+  const lineupsDir = getLineupsDirectory();
+  if (lineupsDir && fs.existsSync(lineupsDir)) {
+    try {
+      const entries = fs.readdirSync(lineupsDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory() && !entry.name.startsWith('.')) {
+          const normDir = normalizeMapName(entry.name);
+          if (normDir === normTarget || normDir.includes(normTarget) || normTarget.includes(normDir)) {
+            const folderPath = path.join(lineupsDir, entry.name);
+            const files = fs.readdirSync(folderPath);
+            const imgFile = files.find(f => /\.(png|jpe?g|webp|bmp|gif)$/i.test(f) && !f.startsWith('.'));
+            if (imgFile) {
+              return {
+                imagePath: path.join(folderPath, imgFile),
+                folderPath: folderPath
+              };
+            }
+          }
+        }
+      }
+    } catch (e) {}
   }
+
+  // Fallback: determine preferred folder path to open/create for this map
+  let targetFolder = null;
+  for (const base of candidateBases) {
+    const directSub = path.join(base, mapName);
+    if (fs.existsSync(directSub)) {
+      targetFolder = directSub;
+      break;
+    }
+  }
+
+  if (!targetFolder) {
+    const primaryBase = candidateBases[0] || (app.isPackaged ? getDocumentsCalloutsDir() : path.join(__dirname, 'Map_Callouts'));
+    targetFolder = path.join(primaryBase, mapName);
+    try {
+      fs.mkdirSync(targetFolder, { recursive: true });
+    } catch (e) {}
+  }
+
   return {
     imagePath: null,
     folderPath: targetFolder
@@ -714,7 +796,7 @@ function setupAutoUpdater() {
 }
 
 let lineupsWatcher = null;
-let calloutsWatcher = null;
+let calloutsWatchers = [];
 let watcherDebounce = null;
 
 function watchLineupsDirectory() {
@@ -725,35 +807,14 @@ function watchLineupsDirectory() {
     lineupsWatcher = null;
   }
   const dir = getLineupsDirectory();
-  if (!fs.existsSync(dir)) {
+  if (dir && !fs.existsSync(dir)) {
     try {
       fs.mkdirSync(dir, { recursive: true });
     } catch (e) {}
   }
-  try {
-    lineupsWatcher = fs.watch(dir, { recursive: true }, (eventType, filename) => {
-      if (filename && (filename.startsWith('.') || filename.includes('tmp') || filename.endsWith('.crdownload'))) return;
-      clearTimeout(watcherDebounce);
-      watcherDebounce = setTimeout(() => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('lineups-updated');
-        }
-      }, 500);
-    });
-  } catch (err) {
-    console.warn('Lineup directory watch error:', err);
-  }
-
-  if (calloutsWatcher) {
+  if (dir && fs.existsSync(dir)) {
     try {
-      calloutsWatcher.close();
-    } catch (e) {}
-    calloutsWatcher = null;
-  }
-  const cDir = getCalloutsDirectory();
-  if (cDir && fs.existsSync(cDir)) {
-    try {
-      calloutsWatcher = fs.watch(cDir, { recursive: true }, (eventType, filename) => {
+      lineupsWatcher = fs.watch(dir, { recursive: true }, (eventType, filename) => {
         if (filename && (filename.startsWith('.') || filename.includes('tmp') || filename.endsWith('.crdownload'))) return;
         clearTimeout(watcherDebounce);
         watcherDebounce = setTimeout(() => {
@@ -763,7 +824,31 @@ function watchLineupsDirectory() {
         }, 500);
       });
     } catch (err) {
-      console.warn('Callouts directory watch error:', err);
+      console.warn('Lineup directory watch error:', err);
+    }
+  }
+
+  // Clear existing callout watchers
+  calloutsWatchers.forEach(w => {
+    try { w.close(); } catch (e) {}
+  });
+  calloutsWatchers = [];
+
+  const calloutDirs = getCandidateCalloutDirs();
+  for (const cDir of calloutDirs) {
+    try {
+      const w = fs.watch(cDir, { recursive: true }, (eventType, filename) => {
+        if (filename && (filename.startsWith('.') || filename.includes('tmp') || filename.endsWith('.crdownload'))) return;
+        clearTimeout(watcherDebounce);
+        watcherDebounce = setTimeout(() => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('lineups-updated');
+          }
+        }, 500);
+      });
+      calloutsWatchers.push(w);
+    } catch (err) {
+      console.warn('Callouts directory watch error for', cDir, err);
     }
   }
 }
@@ -799,16 +884,22 @@ function watchLineupsDirectory() {
 
   // Handle opening callout map directory for a specific map or base
   ipcMain.handle('open-callout-folder', async (event, mapName) => {
-    const calloutData = findCalloutImage(mapName);
-    const folder = calloutData.folderPath;
-    if (folder && fs.existsSync(folder)) {
-      await shell.openPath(folder);
-      return folder;
-    }
-    const base = getCalloutsDirectory();
-    if (base && fs.existsSync(base)) {
-      await shell.openPath(base);
-      return base;
+    try {
+      const calloutData = findCalloutImage(mapName);
+      const folder = calloutData ? calloutData.folderPath : null;
+      if (folder && fs.existsSync(folder)) {
+        await shell.openPath(folder);
+        return folder;
+      }
+      const candidateBases = getCandidateCalloutDirs();
+      for (const base of candidateBases) {
+        if (fs.existsSync(base)) {
+          await shell.openPath(base);
+          return base;
+        }
+      }
+    } catch (e) {
+      console.error('Fehler in open-callout-folder:', e);
     }
     return null;
   });
