@@ -247,13 +247,14 @@ app.whenReady().then(() => {
 function getLineupsDirectory() {
   if (app.isPackaged) {
     const resourcePath = path.join(process.resourcesPath, 'CS2_Lineups');
+    const execPath = path.join(path.dirname(process.execPath), 'CS2_Lineups');
     if (fs.existsSync(resourcePath)) {
       return resourcePath;
     }
-    const execPath = path.join(path.dirname(process.execPath), 'CS2_Lineups');
     if (fs.existsSync(execPath)) {
       return execPath;
     }
+    return resourcePath;
   }
   const devPath = path.join(__dirname, 'CS2_Lineups');
   if (fs.existsSync(devPath)) {

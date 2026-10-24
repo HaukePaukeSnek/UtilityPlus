@@ -6,7 +6,7 @@
   "main": "main.js",
   "scripts": {
     "start": "node run.js",
-    "build:win": "electron-builder --win",
+    "build:win": "electron-builder --win --x64",
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux",
     "dist": "electron-builder"
@@ -31,17 +31,26 @@
     "extraResources": [
       {
         "from": "CS2_Lineups",
-        "to": "CS2_Lineups"
+        "to": "CS2_Lineups",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
       "target": [
-        "nsis"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
