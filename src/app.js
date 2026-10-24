@@ -331,8 +331,9 @@
       lineupImage.removeAttribute('src');
     }
 
-    // Update Landing Spot Frame Preview (1s before video end)
+    // Update Landing Spot Frame Preview (1.5s before video end)
     updateLandingPreview(currentLineup.videoUrl);
+    updateMediaTileSize();
   }
 
   // Navigation Logic
@@ -566,6 +567,45 @@
   function triggerManualRefresh() {
     refreshData(false);
   }
+
+  function updateMediaTileSize() {
+    const container = document.querySelector('.media-container');
+    if (!container) return;
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    if (w <= 0 || h <= 0) return;
+
+    const gap = w < 500 || h < 500 ? 10 : 16;
+    container.style.setProperty('--media-gap', `${gap}px`);
+
+    // Option 1: Side-by-side (2 columns)
+    const sizeRow = Math.min((w - gap) / 2, h);
+
+    // Option 2: Stacked (2 rows, 1 column)
+    const sizeCol = Math.min(w, (h - gap) / 2);
+
+    let layout = 'row';
+    let size = sizeRow;
+
+    if (sizeCol > sizeRow) {
+      layout = 'column';
+      size = sizeCol;
+    }
+
+    size = Math.max(20, Math.floor(size));
+
+    container.style.setProperty('--tile-size', `${size}px`);
+    container.dataset.layout = layout;
+  }
+
+  const mediaContainer = document.querySelector('.media-container');
+  if (window.ResizeObserver && mediaContainer) {
+    const ro = new ResizeObserver(() => {
+      updateMediaTileSize();
+    });
+    ro.observe(mediaContainer);
+  }
+  window.addEventListener('resize', updateMediaTileSize);
 
   // Open lineups directory buttons
   document.querySelectorAll('.btn-open-folder').forEach(btn => {
