@@ -137,6 +137,120 @@ function copyDirectoryRecursively(src, dest, ignoreFilters = true) {
   }
 }
 
+function getDownloadsLineupsCandidates() {
+  const dirs = [];
+  try {
+    const downloads = app.getPath('downloads');
+    if (downloads) {
+      dirs.push(path.join(downloads, 'CS2_Lineups'));
+      dirs.push(path.join(downloads, 'Lineups'));
+    }
+  } catch (e) {}
+  return dirs;
+}
+
+function hasActiveDownloads(dirPath) {
+  if (!dirPath || !fs.existsSync(dirPath)) return false;
+  try {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const name = entry.name.toLowerCase();
+      if (name.endsWith('.crdownload') || name.endsWith('.part') || name.endsWith('.download') || name.endsWith('.tmp')) {
+        return true;
+      }
+      if (entry.isDirectory()) {
+        if (hasActiveDownloads(path.join(dirPath, entry.name))) {
+          return true;
+        }
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+
+function moveDirectorySafely(src, dest) {
+  if (!fs.existsSync(src)) return false;
+  if (hasActiveDownloads(src)) return false;
+  if (!fs.existsSync(dest)) {
+    try {
+      fs.mkdirSync(dest, { recursive: true });
+    } catch (e) {
+      return false;
+    }
+  }
+  let entries = [];
+  try {
+    entries = fs.readdirSync(src, { withFileTypes: true });
+  } catch (e) {
+    return false;
+  }
+
+  let movedAny = false;
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+    const srcItem = path.join(src, entry.name);
+    const destItem = path.join(dest, entry.name);
+
+    if (entry.isDirectory()) {
+      if (hasActiveDownloads(srcItem)) continue;
+      const res = moveDirectorySafely(srcItem, destItem);
+      if (res) movedAny = true;
+      try {
+        if (fs.existsSync(srcItem) && fs.readdirSync(srcItem).length === 0) {
+          fs.rmdirSync(srcItem);
+        }
+      } catch (e) {}
+    } else {
+      const lower = entry.name.toLowerCase();
+      if (lower.endsWith('.crdownload') || lower.endsWith('.part') || lower.endsWith('.download') || lower.endsWith('.tmp')) continue;
+      try {
+        fs.copyFileSync(srcItem, destItem);
+        fs.unlinkSync(srcItem);
+        movedAny = true;
+      } catch (err) {
+        console.warn('[Auto-Import] Datei konnte nicht verschoben werden:', srcItem, err);
+      }
+    }
+  }
+
+  try {
+    if (fs.existsSync(src) && fs.readdirSync(src).length === 0) {
+      fs.rmdirSync(src);
+    }
+  } catch (e) {}
+  return movedAny;
+}
+
+function importLineupsFromDownloads(targetDir) {
+  const destDir = targetDir || (app.isPackaged ? getDocumentsLineupsDir() : path.join(__dirname, 'CS2_Lineups'));
+  if (!destDir) return false;
+
+  const candidateDirs = getDownloadsLineupsCandidates();
+  let importedAny = false;
+
+  for (let candidate of candidateDirs) {
+    if (!fs.existsSync(candidate)) continue;
+    if (path.resolve(candidate) === path.resolve(destDir)) continue;
+
+    // Falls Downloads/CS2_Lineups noch einen weiteren verschachtelten CS2_Lineups Ordner hat, entpacken
+    try {
+      const topEntries = fs.readdirSync(candidate, { withFileTypes: true });
+      const realDirs = topEntries.filter(e => !e.name.startsWith('.') && e.isDirectory());
+      if (realDirs.length === 1 && (realDirs[0].name.toLowerCase() === 'cs2_lineups' || realDirs[0].name.toLowerCase() === 'lineups')) {
+        candidate = path.join(candidate, realDirs[0].name);
+      }
+    } catch (e) {}
+
+    const moved = moveDirectorySafely(candidate, destDir);
+    if (moved) {
+      console.log(`[Auto-Import] Neue Lineups aus ${candidate} nach ${destDir} importiert!`);
+      importedAny = true;
+    }
+  }
+
+  return importedAny;
+}
+
 function getDocumentsExtensionDir() {
   try {
     return path.join(app.getPath('documents'), 'UtilityPlus', 'Chrome_Extension');
@@ -350,6 +464,13 @@ function syncAndProtectLineups() {
     } catch (e) {}
   }
 
+  // Automatischer Import von neuen Lineups aus dem Downloads-Ordner (Browser-Extension)
+  try {
+    importLineupsFromDownloads(docsDir);
+  } catch (e) {
+    console.warn('[Auto-Import] Fehler beim Synchronisieren aus Downloads:', e);
+  }
+
   if (app.isPackaged) {
     // Check if any old lineups exist in Program Files (resources or root) and safely migrate them to Documents
     const resourcePath = path.join(process.resourcesPath, 'CS2_Lineups');
@@ -488,6 +609,8 @@ function setupAutoUpdater() {
 }
 
 let lineupsWatcher = null;
+let downloadsWatcher = null;
+let downloadsTopWatcher = null;
 let calloutsWatchers = [];
 let watcherDebounce = null;
 
@@ -507,7 +630,7 @@ function watchLineupsDirectory() {
   if (dir && fs.existsSync(dir)) {
     try {
       lineupsWatcher = fs.watch(dir, { recursive: true }, (eventType, filename) => {
-        if (filename && (filename.startsWith('.') || filename.includes('tmp') || filename.endsWith('.crdownload'))) return;
+        if (filename && (filename.startsWith('.') || filename.includes('tmp') || filename.endsWith('.crdownload') || filename.endsWith('.part'))) return;
         clearTimeout(watcherDebounce);
         watcherDebounce = setTimeout(() => {
           if (mainWindow && !mainWindow.isDestroyed()) {
@@ -520,6 +643,58 @@ function watchLineupsDirectory() {
     }
   }
 
+  // Watcher für Downloads/CS2_Lineups (Browser-Downloads)
+  if (downloadsWatcher) {
+    try { downloadsWatcher.close(); } catch (e) {}
+    downloadsWatcher = null;
+  }
+  if (downloadsTopWatcher) {
+    try { downloadsTopWatcher.close(); } catch (e) {}
+    downloadsTopWatcher = null;
+  }
+
+  const dlCandidates = getDownloadsLineupsCandidates();
+  for (const dlDir of dlCandidates) {
+    if (fs.existsSync(dlDir)) {
+      try {
+        downloadsWatcher = fs.watch(dlDir, { recursive: true }, (eventType, filename) => {
+          if (filename && (filename.startsWith('.') || filename.endsWith('.crdownload') || filename.endsWith('.part') || filename.endsWith('.tmp'))) return;
+          clearTimeout(watcherDebounce);
+          watcherDebounce = setTimeout(() => {
+            const imported = importLineupsFromDownloads(dir);
+            if (imported && mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('lineups-updated');
+            }
+          }, 800);
+        });
+        break;
+      } catch (err) {
+        console.warn('Downloads directory watch error:', err);
+      }
+    }
+  }
+
+  // Falls Downloads/CS2_Lineups noch nicht existiert, Haupt-Downloads-Verzeichnis überwachen
+  try {
+    const dlTop = app.getPath('downloads');
+    if (dlTop && fs.existsSync(dlTop)) {
+      downloadsTopWatcher = fs.watch(dlTop, { recursive: false }, (eventType, filename) => {
+        if (!filename) return;
+        const fn = filename.toLowerCase();
+        if (fn.includes('cs2_lineups') || fn.includes('lineup')) {
+          clearTimeout(watcherDebounce);
+          watcherDebounce = setTimeout(() => {
+            watchLineupsDirectory();
+            const imported = importLineupsFromDownloads(dir);
+            if (imported && mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('lineups-updated');
+            }
+          }, 1000);
+        }
+      });
+    }
+  } catch (err) {}
+
   // Clear existing callout watchers
   calloutsWatchers.forEach(w => {
     try { w.close(); } catch (e) {}
@@ -530,7 +705,7 @@ function watchLineupsDirectory() {
   for (const cDir of calloutDirs) {
     try {
       const w = fs.watch(cDir, { recursive: true }, (eventType, filename) => {
-        if (filename && (filename.startsWith('.') || filename.includes('tmp') || filename.endsWith('.crdownload'))) return;
+        if (filename && (filename.startsWith('.') || filename.includes('tmp') || filename.endsWith('.crdownload') || filename.endsWith('.part'))) return;
         clearTimeout(watcherDebounce);
         watcherDebounce = setTimeout(() => {
           if (mainWindow && !mainWindow.isDestroyed()) {
@@ -856,6 +1031,9 @@ app.whenReady().then(() => {
   // Handle IPC request for data
   ipcMain.handle('get-lineup-data', async () => {
     const rootDir = getLineupsDirectory();
+    try {
+      importLineupsFromDownloads(rootDir);
+    } catch (e) {}
     watchLineupsDirectory();
     return scanLineupDirectory(rootDir);
   });
