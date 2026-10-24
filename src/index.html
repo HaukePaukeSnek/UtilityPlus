@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UtilityPlus</title>
+  <link rel="icon" type="image/png" href="../assets/icon.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app" class="app-container">
+
+    <!-- Folder / Category Navigation View -->
+    <div id="folder-view" class="view-panel active">
+      <header class="panel-header">
+        <div class="header-left">
+          <div class="brand-logo">
+            <span class="brand-utility">UTILITY</span><span class="brand-plus">+</span>
+          </div>
+          <span class="header-divider">/</span>
+          <div id="folder-breadcrumbs" class="breadcrumbs">KARTEN</div>
+        </div>
+        <div class="shortcut-hint">
+          <span class="key-badge">↑</span> <span class="key-badge">↓</span> Auswählen
+          <span class="separator">•</span>
+          <span class="key-badge">→</span> Öffnen
+          <span class="separator">•</span>
+          <span class="key-badge">←</span> Zurück
+        </div>
+      </header>
+
+      <div class="folder-content">
+        <h2 id="folder-title" class="folder-title">Wähle eine Karte</h2>
+        <div id="folder-list" class="folder-list">
+          <!-- Folder items injected dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Lineup Display View -->
+    <div id="lineup-view" class="view-panel">
+      <header class="panel-header">
+        <div class="header-left">
+          <div class="brand-logo">
+            <span class="brand-utility">UTILITY</span><span class="brand-plus">+</span>
+          </div>
+          <span class="header-divider">/</span>
+          <div id="lineup-breadcrumbs" class="breadcrumbs">CACHE › SMOKE</div>
+          <div id="lineup-counter" class="counter-badge">1 / 2</div>
+        </div>
+        <div class="shortcut-hint">
+          <span class="key-badge">↑</span> <span class="key-badge">↓</span> Lineup wechseln
+          <span class="separator">•</span>
+          <span class="key-badge">←</span> Kategorien
+        </div>
+      </header>
+
+      <!-- Grenade Name / Title -->
+      <div class="title-container">
+        <h1 id="lineup-title" class="lineup-title">Lineup Name</h1>
+      </div>
+
+      <!-- Side-by-side Video and Crosshair Image -->
+      <main class="media-container">
+        <div class="media-card video-card">
+          <div class="media-badge">VIDEO</div>
+          <div class="media-frame">
+            <video id="lineup-video" autoplay loop muted playsinline></video>
+            <div id="landing-preview" class="landing-overlay">
+              <canvas id="landing-canvas"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="media-card image-card">
+          <div class="media-badge">CROSSHAIR PLACEMENT</div>
+          <div class="media-frame">
+            <img id="lineup-image" alt="Crosshair Placement" />
+            <div class="cs-crosshair" aria-hidden="true">
+              <svg width="32" height="32" viewBox="0 0 32 32">
+                <!-- Black uniform outline (exactly 1px everywhere) -->
+                <rect x="14" y="3" width="4" height="10" fill="#000000" />
+                <rect x="14" y="19" width="4" height="10" fill="#000000" />
+                <rect x="3" y="14" width="10" height="4" fill="#000000" />
+                <rect x="19" y="14" width="10" height="4" fill="#000000" />
+                <!-- White core bars -->
+                <rect x="15" y="4" width="2" height="8" fill="#ffffff" />
+                <rect x="15" y="20" width="2" height="8" fill="#ffffff" />
+                <rect x="4" y="15" width="8" height="2" fill="#ffffff" />
+                <rect x="20" y="15" width="8" height="2" fill="#ffffff" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Separate Metadata Area -->
+      <footer class="metadata-container">
+        <div class="meta-card">
+          <span class="meta-label">TECHNIK</span>
+          <span id="lineup-technique" class="meta-value">Normal</span>
+        </div>
+
+        <div class="meta-card">
+          <span class="meta-label">BEWEGUNG</span>
+          <span id="lineup-movement" class="meta-value">Stationary (Stehend)</span>
+        </div>
+
+        <div class="meta-card">
+          <span class="meta-label">PRÄZISION</span>
+          <span id="lineup-precision" class="meta-value">Precise (Präzise)</span>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Empty State (Fallback) -->
+    <div id="empty-state" class="view-panel">
+      <div class="empty-message">
+        <h2>Keine Lineups gefunden</h2>
+        <p>Bitte überprüfe den Ordner <code>CS2_Lineups</code>.</p>
+      </div>
+    </div>
+
+    <!-- In-App Auto Update Banner -->
+    <div id="update-banner" class="update-banner">
+      <span id="update-text" class="update-text">🚀 Update verfügbar</span>
+      <button id="update-btn" class="update-btn" style="display:none">Installieren</button>
+      <button id="update-close" class="update-close" title="Schließen">×</button>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+

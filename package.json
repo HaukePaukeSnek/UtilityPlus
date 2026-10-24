@@ -1,0 +1,81 @@
+{
+  "name": "utilityplus",
+  "productName": "UtilityPlus",
+  "version": "1.0.0",
+  "description": "UtilityPlus - CS2 Granaten Lineup Assistant",
+  "main": "main.js",
+  "scripts": {
+    "start": "node run.js",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "dist": "electron-builder"
+  },
+  "keywords": [
+    "utilityplus",
+    "cs2",
+    "lineups",
+    "counter-strike"
+  ],
+  "author": "",
+  "license": "ISC",
+  "build": {
+    "appId": "com.utilityplus.app",
+    "productName": "UtilityPlus",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "CS2_Lineups",
+        "to": "CS2_Lineups"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "UtilityPlus",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "uninstallDisplayName": "UtilityPlus"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.games"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "assets/icon.png",
+      "category": "Game"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "HaukePaukeSnek",
+        "repo": "UtilityPlus"
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
+    "electron-updater": "^6.8.11"
+  }
+}

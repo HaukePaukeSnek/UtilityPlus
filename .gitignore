@@ -1,0 +1,5 @@
+node_modules/
+dist/
+CS2_Lineups/
+.DS_Store
+*.log
