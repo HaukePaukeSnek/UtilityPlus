@@ -27,6 +27,9 @@ function toAssetUrl(filePath) {
 
 function scanLineupDirectory(baseDir) {
   if (!fs.existsSync(baseDir)) {
+    try {
+      fs.mkdirSync(baseDir, { recursive: true });
+    } catch (e) {}
     return [];
   }
 
