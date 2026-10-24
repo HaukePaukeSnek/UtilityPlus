@@ -483,5 +483,127 @@
     });
   }
 
+  let isRefreshing = false;
+
+  async function refreshData(silent = false) {
+    if (isRefreshing) return;
+    isRefreshing = true;
+
+    const refreshIcons = document.querySelectorAll('.icon-refresh');
+    if (!silent) {
+      refreshIcons.forEach(icon => icon.classList.add('spinning'));
+    }
+
+    try {
+      if (window.api && window.api.getLineupData) {
+        const newData = await window.api.getLineupData();
+
+        if (newData && newData.length > 0) {
+          // Attempt to keep previous location if valid
+          const prevMapName = data && data[mapIndex] ? data[mapIndex].name : null;
+          const prevCatName = data && data[mapIndex] && data[mapIndex].categories[categoryIndex]
+            ? data[mapIndex].categories[categoryIndex].name : null;
+          const prevLineupName = data && data[mapIndex] && data[mapIndex].categories[categoryIndex] && data[mapIndex].categories[categoryIndex].lineups[lineupIndex]
+            ? data[mapIndex].categories[categoryIndex].lineups[lineupIndex].name : null;
+
+          data = newData;
+
+          if (prevMapName) {
+            const foundMapIdx = data.findIndex(m => m.name === prevMapName);
+            if (foundMapIdx !== -1) {
+              mapIndex = foundMapIdx;
+              if (prevCatName) {
+                const foundCatIdx = data[mapIndex].categories.findIndex(c => c.name === prevCatName);
+                if (foundCatIdx !== -1) {
+                  categoryIndex = foundCatIdx;
+                  if (prevLineupName) {
+                    const foundLineupIdx = data[mapIndex].categories[categoryIndex].lineups.findIndex(l => l.name === prevLineupName);
+                    if (foundLineupIdx !== -1) {
+                      lineupIndex = foundLineupIdx;
+                    } else {
+                      lineupIndex = Math.max(0, Math.min(lineupIndex, data[mapIndex].categories[categoryIndex].lineups.length - 1));
+                    }
+                  }
+                } else {
+                  categoryIndex = 0;
+                  lineupIndex = 0;
+                  if (currentLevel === 'lineups') currentLevel = 'categories';
+                }
+              }
+            } else {
+              mapIndex = 0;
+              categoryIndex = 0;
+              lineupIndex = 0;
+              currentLevel = 'maps';
+            }
+          } else {
+            mapIndex = 0;
+            categoryIndex = 0;
+            lineupIndex = 0;
+            currentLevel = 'maps';
+          }
+
+          render();
+        } else {
+          data = [];
+          showEmptyState();
+        }
+      }
+    } catch (err) {
+      console.error('Fehler beim Aktualisieren der Lineups:', err);
+    } finally {
+      if (!silent) {
+        setTimeout(() => {
+          refreshIcons.forEach(icon => icon.classList.remove('spinning'));
+          isRefreshing = false;
+        }, 400);
+      } else {
+        isRefreshing = false;
+      }
+    }
+  }
+
+  function triggerManualRefresh() {
+    refreshData(false);
+  }
+
+  // Open lineups directory buttons
+  document.querySelectorAll('.btn-open-folder').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.api && window.api.openLineupsDirectory) {
+        window.api.openLineupsDirectory();
+      }
+    });
+  });
+
+  // Manual reload buttons
+  document.querySelectorAll('.btn-reload').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      triggerManualRefresh();
+    });
+  });
+
+  // F5 / Ctrl+R / Cmd+R to reload manually
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R'))) {
+      e.preventDefault();
+      triggerManualRefresh();
+    }
+  });
+
+  // Automatic reload when window regains focus (e.g. after adding files in explorer)
+  window.addEventListener('focus', () => {
+    refreshData(true);
+  });
+
+  // Automatic reload when file watcher in main process detects directory changes
+  if (window.api && window.api.onLineupsUpdated) {
+    window.api.onLineupsUpdated(() => {
+      refreshData(true);
+    });
+  }
+
   init();
 })();

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, protocol, net, ipcMain } = require('electron');
+const { app, BrowserWindow, globalShortcut, protocol, net, ipcMain, shell } = require('electron');
 const { Readable } = require('stream');
 const path = require('path');
 const fs = require('fs');
@@ -301,10 +301,53 @@ function setupAutoUpdater() {
   }
 }
 
+let lineupsWatcher = null;
+let watcherDebounce = null;
+
+function watchLineupsDirectory() {
+  if (lineupsWatcher) {
+    try {
+      lineupsWatcher.close();
+    } catch (e) {}
+    lineupsWatcher = null;
+  }
+  const dir = getLineupsDirectory();
+  if (!fs.existsSync(dir)) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch (e) {}
+  }
+  try {
+    lineupsWatcher = fs.watch(dir, { recursive: true }, (eventType, filename) => {
+      if (filename && (filename.startsWith('.') || filename.includes('tmp') || filename.endsWith('.crdownload'))) return;
+      clearTimeout(watcherDebounce);
+      watcherDebounce = setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('lineups-updated');
+        }
+      }, 500);
+    });
+  } catch (err) {
+    console.warn('Lineup directory watch error:', err);
+  }
+}
+
   // Handle IPC request for data
   ipcMain.handle('get-lineup-data', async () => {
     const rootDir = getLineupsDirectory();
     return scanLineupDirectory(rootDir);
+  });
+
+  // Handle opening lineups directory in native file explorer / Finder
+  ipcMain.handle('open-lineups-directory', async () => {
+    const dir = getLineupsDirectory();
+    if (!fs.existsSync(dir)) {
+      try {
+        fs.mkdirSync(dir, { recursive: true });
+      } catch (e) {}
+    }
+    await shell.openPath(dir);
+    return dir;
   });
 
   ipcMain.handle('restart-and-install-update', () => {
@@ -316,6 +359,7 @@ function setupAutoUpdater() {
   createWindow();
   registerGlobalHotkeys();
   setupAutoUpdater();
+  watchLineupsDirectory();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
