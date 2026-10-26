@@ -1,7 +1,7 @@
 {
   "name": "utilityplus",
   "productName": "UtilityPlus",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "UtilityPlus - CS2 Granaten Lineup Assistant",
   "main": "main.js",
   "scripts": {
