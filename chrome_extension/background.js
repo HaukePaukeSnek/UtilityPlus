@@ -168,36 +168,48 @@ async function handleDownload(data) {
   };
 }
 
-// Führt einzelnen Download aus (funktioniert in Chrome & Firefox)
+// Führt einzelnen Download aus (vollständig kompatibel mit Chrome & Firefox)
 function downloadFile(url, filename) {
-  const extApi = (typeof browser !== 'undefined' && browser.downloads) ? browser : chrome;
+  const downloadOptions = {
+    url: url,
+    filename: filename,
+    conflictAction: 'overwrite',
+    saveAs: false
+  };
+
   return new Promise((resolve, reject) => {
-    try {
-      const res = extApi.downloads.download(
-        {
-          url: url,
-          filename: filename,
-          conflictAction: 'overwrite',
-          saveAs: false
-        },
-        (downloadId) => {
-          if (extApi.runtime && extApi.runtime.lastError) {
-            console.error('[CS2 Scraper] Download Fehler:', extApi.runtime.lastError);
-            reject(new Error(extApi.runtime.lastError.message));
-          } else {
-            resolve(downloadId);
-          }
-        }
-      );
-      if (res && typeof res.then === 'function') {
-        res.then(resolve).catch((err) => {
+    // 1. Firefox: browser.downloads.download akzeptiert nur 1 Argument und gibt ein Promise zurück
+    if (typeof browser !== 'undefined' && browser.downloads && typeof browser.downloads.download === 'function') {
+      browser.downloads.download(downloadOptions)
+        .then((downloadId) => resolve(downloadId))
+        .catch((err) => {
           console.error('[CS2 Scraper] Firefox Download Fehler:', err);
           reject(err);
         });
-      }
-    } catch (err) {
-      reject(err);
+      return;
     }
+
+    // 2. Chrome / Chromium: chrome.downloads.download mit Callback
+    if (typeof chrome !== 'undefined' && chrome.downloads && typeof chrome.downloads.download === 'function') {
+      try {
+        const res = chrome.downloads.download(downloadOptions, (downloadId) => {
+          if (chrome.runtime && chrome.runtime.lastError) {
+            console.error('[CS2 Scraper] Chrome Download Fehler:', chrome.runtime.lastError);
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(downloadId);
+          }
+        });
+        if (res && typeof res.then === 'function') {
+          res.then(resolve).catch(reject);
+        }
+      } catch (err) {
+        reject(err);
+      }
+      return;
+    }
+
+    reject(new Error('Keine Browser Download-API verfügbar'));
   });
 }
 
@@ -260,10 +272,11 @@ echo ">>> Technik: ${data.techniqueLabel} | Bewegung: ${data.movementLabel} <<<"
 `;
 }
 
-// Dateinamen bereinigen
+// Dateinamen bereinigen (sicher für Windows, macOS und Firefox/Chrome API)
 function sanitize(name) {
   return String(name)
     .replace(/[<>:"/\\|?*]/g, '_')
     .replace(/\s+/g, '_')
-    .trim();
+    .replace(/^\.+|\.+$/g, '')
+    .trim() || 'lineup';
 }

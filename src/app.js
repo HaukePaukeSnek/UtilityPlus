@@ -1062,6 +1062,26 @@
     });
   }
 
+  // Browser-Guide Tabs in Options-Modal (Firefox vs Chrome)
+  document.querySelectorAll('.browser-tab-btn').forEach(tabBtn => {
+    tabBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const targetId = tabBtn.getAttribute('data-target');
+      document.querySelectorAll('.browser-tab-btn').forEach(b => b.classList.remove('active'));
+      tabBtn.classList.add('active');
+
+      document.querySelectorAll('.guide-panel').forEach(panel => {
+        if (panel.id === targetId) {
+          panel.style.display = 'flex';
+          panel.classList.add('active');
+        } else {
+          panel.style.display = 'none';
+          panel.classList.remove('active');
+        }
+      });
+    });
+  });
+
   if (btnLineupCallout) {
     btnLineupCallout.addEventListener('click', (e) => {
       e.stopPropagation();

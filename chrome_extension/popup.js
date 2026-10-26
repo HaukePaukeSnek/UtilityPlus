@@ -78,27 +78,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Fragt Daten vom Content-Script ab oder injiziert es bei Bedarf
   function fetchLineupFromTab(tabId) {
-    chrome.tabs.sendMessage(tabId, { action: 'getLineupData' }, (response) => {
+    chrome.tabs.sendMessage(tabId, { action: 'getLineupData' }, async (response) => {
       if (chrome.runtime.lastError || !response) {
-        // Falls das Content Script noch nicht aktiv war, dynamisch einfügen
-        chrome.scripting.executeScript(
-          {
+        // Falls das Content Script noch nicht aktiv war, dynamisch einfügen (Promise-Syntax für Firefox & Chrome)
+        try {
+          const api = (typeof browser !== 'undefined' && browser.scripting) ? browser : chrome;
+          await api.scripting.executeScript({
             target: { tabId: tabId },
             files: ['content.js']
-          },
-          () => {
-            if (chrome.runtime.lastError) {
-              showNotNadeState();
-              return;
-            }
-            // Erneut versuchen nach Injektion
-            setTimeout(() => {
-              chrome.tabs.sendMessage(tabId, { action: 'getLineupData' }, (resp) => {
-                handleLineupResponse(resp);
-              });
-            }, 200);
-          }
-        );
+          });
+          // Erneut versuchen nach Injektion
+          setTimeout(() => {
+            chrome.tabs.sendMessage(tabId, { action: 'getLineupData' }, (resp) => {
+              handleLineupResponse(resp);
+            });
+          }, 250);
+        } catch (err) {
+          console.warn('[CS2 Scraper] Script Injection Fehler:', err);
+          showNotNadeState();
+        }
       } else {
         handleLineupResponse(response);
       }

@@ -388,7 +388,7 @@
 
           <div class="extension-card">
             <div class="extension-info">
-              <span class="extension-title">Chrome / Brave Extension</span>
+              <span class="extension-title">Browser-Erweiterung (Firefox & Chromium)</span>
               <span class="extension-desc">Lade Lineups automatisch von csnades.gg direkt in deine Sammlung herunter.</span>
             </div>
             <button id="btn-open-extension" class="header-btn" style="padding: 7px 14px; font-size: 0.82rem;">
@@ -399,11 +399,27 @@
             </button>
           </div>
 
-          <div class="extension-instructions">
-            <div class="instruction-step"><span class="step-num">1.</span> Klicke auf <strong>„Erweiterungs-Ordner öffnen“</strong>.</div>
+          <div class="browser-guide-tabs">
+            <button class="browser-tab-btn active" data-target="guide-firefox">🦊 Mozilla Firefox</button>
+            <button class="browser-tab-btn" data-target="guide-chrome">🦁 Chrome / Brave / Edge</button>
+          </div>
+
+          <!-- Firefox Anleitung -->
+          <div id="guide-firefox" class="extension-instructions guide-panel active">
+            <div class="instruction-step"><span class="step-num">1.</span> Klicke oben auf <strong>„Erweiterungs-Ordner öffnen“</strong>.</div>
+            <div class="instruction-step"><span class="step-num">2.</span> Öffne Firefox und rufe <code>about:debugging#/runtime/this-firefox</code> auf.</div>
+            <div class="instruction-step"><span class="step-num">3.</span> Klicke auf <strong>„Temporäres Add-on laden...“</strong>.</div>
+            <div class="instruction-step"><span class="step-num">4.</span> Wähle die Datei <code>manifest.json</code> (oder <code>cs2-nade-scraper.zip</code>) im Ordner aus.</div>
+            <div class="instruction-step"><span class="step-num">5.</span> <strong>Fertig!</strong> Das CS2-Symbol erscheint oben in Firefox.</div>
+          </div>
+
+          <!-- Chrome/Brave/Edge Anleitung -->
+          <div id="guide-chrome" class="extension-instructions guide-panel" style="display: none;">
+            <div class="instruction-step"><span class="step-num">1.</span> Klicke oben auf <strong>„Erweiterungs-Ordner öffnen“</strong>.</div>
             <div class="instruction-step"><span class="step-num">2.</span> Öffne Chrome oder Brave und rufe <code>chrome://extensions</code> (oder <code>brave://extensions</code>) auf.</div>
             <div class="instruction-step"><span class="step-num">3.</span> Aktiviere oben rechts den <strong>Entwicklermodus</strong>.</div>
             <div class="instruction-step"><span class="step-num">4.</span> Klicke auf <strong>„Entpackte Erweiterung laden“</strong> und wähle den Ordner aus.</div>
+            <div class="instruction-step"><span class="step-num">5.</span> <strong>Fertig!</strong> Pinne das CS2-Symbol an deine Menüleiste.</div>
           </div>
         </div>
 
