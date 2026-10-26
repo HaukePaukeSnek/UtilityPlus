@@ -9,6 +9,7 @@
     "build:win": "electron-builder --win --x64",
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux",
+    "package:ext": "cd chrome_extension && zip -FS -r cs2-nade-scraper.zip manifest.json background.js content.js content.css popup.html popup.js popup.css icons/",
     "dist": "electron-builder"
   },
   "keywords": [

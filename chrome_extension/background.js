@@ -85,8 +85,13 @@ async function handleDownload(data) {
     let videoUrl = data.videoUrl;
     let videoFilename = `${targetFolder}/video.mp4`;
 
-    if (data.compressedVideoBlobUrl) {
-      // Client-seitig re-kodiertes Video
+    if (data.compressedVideoDataUrl) {
+      // Client-seitig re-kodiertes Video via Data-URL (unterstützt Chrome & Firefox sicher ohne Origin-Einschränkungen)
+      videoUrl = data.compressedVideoDataUrl;
+      const ext = data.compressedVideoExt || 'mp4';
+      videoFilename = `${targetFolder}/video.${ext}`;
+    } else if (data.compressedVideoBlobUrl) {
+      // Client-seitig re-kodiertes Video via Blob-URL
       videoUrl = data.compressedVideoBlobUrl;
       const ext = data.compressedVideoExt || 'mp4';
       videoFilename = `${targetFolder}/video.${ext}`;
@@ -163,25 +168,36 @@ async function handleDownload(data) {
   };
 }
 
-// Führt einzelnen Download aus
+// Führt einzelnen Download aus (funktioniert in Chrome & Firefox)
 function downloadFile(url, filename) {
+  const extApi = (typeof browser !== 'undefined' && browser.downloads) ? browser : chrome;
   return new Promise((resolve, reject) => {
-    chrome.downloads.download(
-      {
-        url: url,
-        filename: filename,
-        conflictAction: 'overwrite',
-        saveAs: false
-      },
-      (downloadId) => {
-        if (chrome.runtime.lastError) {
-          console.error('[CS2 Scraper] Download Fehler:', chrome.runtime.lastError);
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          resolve(downloadId);
+    try {
+      const res = extApi.downloads.download(
+        {
+          url: url,
+          filename: filename,
+          conflictAction: 'overwrite',
+          saveAs: false
+        },
+        (downloadId) => {
+          if (extApi.runtime && extApi.runtime.lastError) {
+            console.error('[CS2 Scraper] Download Fehler:', extApi.runtime.lastError);
+            reject(new Error(extApi.runtime.lastError.message));
+          } else {
+            resolve(downloadId);
+          }
         }
+      );
+      if (res && typeof res.then === 'function') {
+        res.then(resolve).catch((err) => {
+          console.error('[CS2 Scraper] Firefox Download Fehler:', err);
+          reject(err);
+        });
       }
-    );
+    } catch (err) {
+      reject(err);
+    }
   });
 }
 

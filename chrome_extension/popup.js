@@ -282,12 +282,26 @@ document.addEventListener('DOMContentLoaded', async () => {
           URL.revokeObjectURL(blobUrl);
           const outBlob = new Blob(chunks, { type: mimeType });
           const outUrl = URL.createObjectURL(outBlob);
-          resolve({
-            blobUrl: outUrl,
-            mimeType,
-            size: outBlob.size,
-            ext: mimeType.includes('mp4') ? 'mp4' : 'webm'
-          });
+
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve({
+              blobUrl: outUrl,
+              dataUrl: reader.result,
+              mimeType,
+              size: outBlob.size,
+              ext: mimeType.includes('mp4') ? 'mp4' : 'webm'
+            });
+          };
+          reader.onerror = () => {
+            resolve({
+              blobUrl: outUrl,
+              mimeType,
+              size: outBlob.size,
+              ext: mimeType.includes('mp4') ? 'mp4' : 'webm'
+            });
+          };
+          reader.readAsDataURL(outBlob);
         };
 
         recorder.start();
@@ -355,6 +369,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const srcUrl = currentLineupData.videoLqUrl || currentLineupData.videoUrl;
         const compressed = await reencodeVideo(srcUrl, 720, 1600000);
         payload.compressedVideoBlobUrl = compressed.blobUrl;
+        payload.compressedVideoDataUrl = compressed.dataUrl;
         payload.compressedVideoExt = compressed.ext;
         const mb = Math.round((compressed.size / 1024 / 1024) * 10) / 10;
         statusMsg.textContent = `Video komprimiert (${mb} MB)! Speichere Dateien...`;

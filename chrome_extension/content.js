@@ -446,12 +446,26 @@
           URL.revokeObjectURL(blobUrl);
           const outBlob = new Blob(chunks, { type: mimeType });
           const outUrl = URL.createObjectURL(outBlob);
-          resolve({
-            blobUrl: outUrl,
-            mimeType,
-            size: outBlob.size,
-            ext: mimeType.includes('mp4') ? 'mp4' : 'webm'
-          });
+
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve({
+              blobUrl: outUrl,
+              dataUrl: reader.result,
+              mimeType,
+              size: outBlob.size,
+              ext: mimeType.includes('mp4') ? 'mp4' : 'webm'
+            });
+          };
+          reader.onerror = () => {
+            resolve({
+              blobUrl: outUrl,
+              mimeType,
+              size: outBlob.size,
+              ext: mimeType.includes('mp4') ? 'mp4' : 'webm'
+            });
+          };
+          reader.readAsDataURL(outBlob);
         };
 
         recorder.start();
@@ -544,6 +558,7 @@
           const srcUrl = lineupData.videoLqUrl || lineupData.videoUrl;
           const compressed = await reencodeVideo(srcUrl, 720, 1600000);
           lineupData.compressedVideoBlobUrl = compressed.blobUrl;
+          lineupData.compressedVideoDataUrl = compressed.dataUrl;
           lineupData.compressedVideoExt = compressed.ext;
         } catch (e) {
           console.warn('Re-encode im Tab fehlgeschlagen, verwende LQ-Fallback:', e);

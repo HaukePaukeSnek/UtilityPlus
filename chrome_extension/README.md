@@ -1,18 +1,36 @@
-# 🎯 CS2 Nade Scraper - Brave / Chrome Extension
+# 🎯 CS2 Nade Scraper - Browser Extension (Firefox, Chrome, Brave & Edge)
 
-Browser-Erweiterung zum automatischen Herunterladen von CS2 Lineups von [csnades.gg](https://csnades.gg).
+Browser-Erweiterung zum automatischen Herunterladen von CS2 Lineups von [csnades.gg](https://csnades.gg) direkt in dein UtilityPlus.
 
-## 🚀 Installation in Brave
+---
 
-1. Öffne den **Brave Browser**.
+## 🦊 Installation in Mozilla Firefox
+
+1. Öffne **Firefox**.
 2. Gib in die Adresszeile ein:
    ```text
-   brave://extensions
+   about:debugging#/runtime/this-firefox
+   ```
+3. Klicke auf den Button **"Temporäres Add-on laden..."** (*Load Temporary Add-on...*).
+4. Navigiere in diesen Ordner (`chrome_extension`) und wähle die Datei **`manifest.json`** aus.
+5. **Fertig!** Das Add-on ist geladen und das CS2-Icon erscheint in der Symbolleiste.
+
+---
+
+## 🦁 Installation in Brave, Chrome oder Edge
+
+1. Öffne deinen Browser (**Brave**, **Google Chrome** oder **Edge**).
+2. Gib in die Adresszeile ein:
+   ```text
+   brave://extensions    (in Brave)
+   chrome://extensions   (in Chrome / Edge)
    ```
 3. Aktiviere oben rechts den Schalter **Entwicklermodus** (*Developer mode*).
 4. Klicke oben links auf **"Entpackte Erweiterung laden"** (*Load unpacked*).
-5. Wähle genau **diesen Ordner (`extension`)** aus.
-6. **Fertig!** Pinne das CS2-Symbol oben rechts in Brave an die Menüleiste.
+5. Wähle diesen Ordner (`chrome_extension`) aus.
+6. **Fertig!** Pinne das CS2-Symbol oben rechts an deine Menüleiste.
+
+---
 
 ## ⚙️ Einstellungen & Videokompression
 Klicke im Popup auf das **Zahnrad (⚙️)**, um deine Einstellungen anzupassen:
@@ -22,8 +40,9 @@ Klicke im Popup auf das **Zahnrad (⚙️)**, um deine Einstellungen anzupassen:
   - 🗜️ **Maximale Kompression (Re-Encode)**: Rekomprimiert das Video clientseitig im Browser (~1.5–2.5 MB, ~95% Ersparnis, dauert ca. 2–3 Sekunden pro Download).
   - 🎬 **Original (HQ / 1080p)**: Originaldateien (~30–50 MB).
 
+---
+
 ## 🔄 Erweiterung aktualisieren
-Wenn du die Erweiterung bereits in Brave/Chrome geladen hast:
-1. Gehe zu `brave://extensions` bzw. `chrome://extensions`.
-2. Klicke bei **CS2 Nade Scraper** einfach auf das **Aktualisieren-Symbol (Kreispfeil 🔄)**.
+- **In Firefox**: Auf `about:debugging#/runtime/this-firefox` beim Add-on auf **"Neu laden"** klicken.
+- **In Brave/Chrome**: Auf `chrome://extensions` beim Add-on auf das **Aktualisieren-Symbol (Kreispfeil 🔄)** klicken.
 
